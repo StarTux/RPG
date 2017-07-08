@@ -1,0 +1,13 @@
+name: RPG
+description: RPG
+author: StarTux
+version: 0.1
+main: com.winthier.rpg.RPGPlugin
+depend: [ Custom ]
+commands:
+  rpg:
+    description: rpg
+    permission: rpg.rpg
+permissions:
+  rpg.rpg:
+    description: Use /rpg

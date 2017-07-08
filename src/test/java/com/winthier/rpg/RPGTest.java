@@ -1,11 +1,11 @@
 package com.winthier.rpg;
 
 import java.util.Map;
-import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import org.junit.Assert;
 import org.junit.Test;
+import java.util.EnumSet;
 
 public final class RPGTest {
     private Random random = new Random(0);
@@ -14,7 +14,7 @@ public final class RPGTest {
     public void main() {
         Generator generator = new Generator();
         for (int i = 0; i < 5; i += 1) {
-            House house = generator.generateHouse(16, 16);
+            House house = generator.generateHouse(16, 16, EnumSet.noneOf(GeneratorFlag.class));
             draw(house);
         }
     }

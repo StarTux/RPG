@@ -5,6 +5,7 @@ import com.winthier.custom.entity.CustomEntity;
 import com.winthier.custom.entity.EntityContext;
 import com.winthier.custom.entity.EntityWatcher;
 import com.winthier.custom.entity.TickableEntity;
+import com.winthier.custom.util.Msg;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -121,8 +122,8 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
             }
             NPCSpeechEntity.Watcher speechWatcher = (NPCSpeechEntity.Watcher)CustomPlugin.getInstance().getEntityManager().spawnEntity(entity.getEyeLocation().add(0, 10, 0), NPCSpeechEntity.CUSTOM_ID);
             speechWatcher.setLiving(entity);
-            speechWatcher.setMessage(messages.get(messageIndex));
-            speechWatcher.setColor(ChatColor.BLUE);
+            speechWatcher.getMessages().addAll(Msg.wrap(messages.get(messageIndex), 16));
+            speechWatcher.setColor(ChatColor.GREEN);
             messageIndex += 1;
             if (messageIndex >= messages.size()) messageIndex = 0;
         }

@@ -73,50 +73,22 @@ final class Generator {
         switch (flagDoor) {
         case RANDOM:
             switch (random.nextInt(7)) {
-            case 0:
-                matDoor = Material.ACACIA_DOOR;
-                break;
-            case 1:
-                matDoor = Material.BIRCH_DOOR;
-                break;
-            case 2:
-                matDoor = Material.DARK_OAK_DOOR;
-                break;
-            case 3:
-                matDoor = Material.IRON_DOOR;
-                break;
-            case 4:
-                matDoor = Material.JUNGLE_DOOR;
-                break;
-            case 5:
-                matDoor = Material.SPRUCE_DOOR;
-                break;
-            case 6:
-            default:
-                matDoor = Material.WOODEN_DOOR;
+            case 0: matDoor = Material.ACACIA_DOOR; break;
+            case 1: matDoor = Material.BIRCH_DOOR; break;
+            case 2: matDoor = Material.DARK_OAK_DOOR; break;
+            case 3: matDoor = Material.IRON_DOOR_BLOCK; break;
+            case 4: matDoor = Material.JUNGLE_DOOR; break;
+            case 5: matDoor = Material.SPRUCE_DOOR; break;
+            case 6: default: matDoor = Material.WOODEN_DOOR;
             }
             break;
-        case ACACIA_DOOR:
-            matDoor = Material.ACACIA_DOOR;
-            break;
-        case BIRCH_DOOR:
-            matDoor = Material.BIRCH_DOOR;
-            break;
-        case DARK_OAK_DOOR:
-            matDoor = Material.DARK_OAK_DOOR;
-            break;
-        case IRON_DOOR:
-            matDoor = Material.IRON_DOOR;
-            break;
-        case JUNGLE_DOOR:
-            matDoor = Material.JUNGLE_DOOR;
-            break;
-        case SPRUCE_DOOR:
-            matDoor = Material.SPRUCE_DOOR;
-            break;
-        case OAK_DOOR:
-        default:
-            matDoor = Material.WOODEN_DOOR;
+        case ACACIA_DOOR: matDoor = Material.ACACIA_DOOR; break;
+        case BIRCH_DOOR: matDoor = Material.BIRCH_DOOR; break;
+        case DARK_OAK_DOOR: matDoor = Material.DARK_OAK_DOOR; break;
+        case IRON_DOOR: matDoor = Material.IRON_DOOR_BLOCK; break;
+        case JUNGLE_DOOR: matDoor = Material.JUNGLE_DOOR; break;
+        case SPRUCE_DOOR: matDoor = Material.SPRUCE_DOOR; break;
+        case OAK_DOOR: default: matDoor = Material.WOODEN_DOOR;
         }
         int color = random.nextInt(16);
         for (Vec2 vec: tiles.keySet()) {
@@ -532,7 +504,7 @@ final class Generator {
         }
     }
 
-    House generateHouse(int width, int height) {
+    House generateHouse(int width, int height, Set<GeneratorFlag> flags) {
         Map<Vec2, RoomTile> tiles = new HashMap<>();
         Map<Vec2, Room> roomMap = new HashMap<>();
         Map<Room, Set<Room>> roomConnections = new HashMap<>();
@@ -566,6 +538,7 @@ final class Generator {
         }
         // Insert doors
         Collections.shuffle(rooms, random);
+        int totalOutsideDoors = 1 + random.nextInt(3);
         for (Room room: rooms) {
             Set<Room> connectedRooms = roomConnections.get(room);
             if (connectedRooms == null) {
@@ -620,12 +593,15 @@ final class Generator {
                 RoomTile right = tiles.get(vecRight);
                 if (wall == RoomTile.WALL && inside == RoomTile.FLOOR && left == RoomTile.WALL && right == RoomTile.WALL) {
                     if (outside == null) {
-                        if (!outsideDoor) {
-                            tiles.put(vec, RoomTile.DOOR);
-                            outsideDoor = true;
-                        } else {
-                            if (random.nextBoolean()) {
-                                tiles.put(vec, RoomTile.WINDOW);
+                        if (!flags.contains(GeneratorFlag.UNDERGROUND)) {
+                            if (!outsideDoor && totalOutsideDoors > 0) {
+                                tiles.put(vec, RoomTile.DOOR);
+                                outsideDoor = true;
+                                totalOutsideDoors -= 1;
+                            } else {
+                                if (random.nextBoolean()) {
+                                    tiles.put(vec, RoomTile.WINDOW);
+                                }
                             }
                         }
                     } else if (outside == RoomTile.FLOOR) {

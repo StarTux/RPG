@@ -5,11 +5,15 @@ import com.winthier.custom.entity.CustomEntity;
 import com.winthier.custom.entity.EntityContext;
 import com.winthier.custom.entity.EntityWatcher;
 import com.winthier.custom.entity.TickableEntity;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Sound;
+import org.bukkit.SoundCategory;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
@@ -75,26 +79,62 @@ public final class NPCSpeechEntity implements CustomEntity, TickableEntity {
         private final ArmorStand entity;
         private final NPCSpeechEntity customEntity;
         private LivingEntity living;
+        private Watcher master;
         private int ticks = 0;
-        private String message = "";
+        private List<String> messages = new ArrayList<>();
         private ChatColor color = ChatColor.WHITE;
+        private int oldshown = 0;
+        private boolean teleported = false;
 
         void onTick() {
-            if (living == null || !living.isValid()) {
-                remove();
+            if (master != null) {
+                if (master.entity == null || !master.entity.isValid()) {
+                    remove();
+                    return;
+                }
+                if (!master.teleported) return;
+                entity.teleport(master.entity.getLocation().add(0, 0.25, 0));
             } else {
-                ticks += 1;
+                if (living == null || !living.isValid()) {
+                    remove();
+                    return;
+                }
                 if (living.getCustomName() == null) {
                     entity.teleport(living.getEyeLocation().add(0, 0.35, 0));
                 } else {
                     entity.teleport(living.getEyeLocation().add(0, 0.5, 0));
                 }
-                int shown = Math.min(message.length(), ticks / 2);
-                if (ticks > message.length() * 4) {
+                if (!teleported) {
+                    teleported = true;
+                    return;
+                }
+                ticks += 1;
+                if (messages.isEmpty()) {
                     remove();
+                    return;
+                }
+                String message = messages.get(0);
+                int shown = ticks / 2;
+                if (shown > message.length()) {
+                    if (messages.size() == 1) {
+                        if (shown > message.length() * 2) {
+                            remove();
+                        }
+                    } else {
+                        messages.remove(0);
+                        this.master = (NPCSpeechEntity.Watcher)CustomPlugin.getInstance().getEntityManager().spawnEntity(entity.getLocation().add(0, 10, 0), NPCSpeechEntity.CUSTOM_ID);
+                        master.setLiving(living);
+                        master.setMessages(messages);
+                        master.setColor(color);
+                        this.living = null;
+                    }
                 } else {
-                    entity.setCustomName(color + message.substring(0, shown));
-                    entity.setCustomNameVisible(true);
+                    if (shown != oldshown) {
+                        oldshown = shown;
+                        entity.setCustomName(color + message.substring(0, shown));
+                        entity.setCustomNameVisible(true);
+                        entity.getWorld().playSound(entity.getLocation(), Sound.BLOCK_ANVIL_BREAK, SoundCategory.NEUTRAL, 0.25f, 2.0f);
+                    }
                 }
             }
         }

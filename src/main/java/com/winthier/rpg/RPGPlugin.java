@@ -46,7 +46,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
             for (int i = 2; i < args.length; i += 1) {
                 flags.add(GeneratorFlag.valueOf(args[i].toUpperCase()));
             }
-            generator.plantHouse(player.getLocation().getBlock().getRelative(-size/2, 0, -size/2), generator.generateHouse(size, size), flags);
+            generator.plantHouse(player.getLocation().getBlock().getRelative(-size/2, 0, -size/2), generator.generateHouse(size, size, flags), flags);
             sender.sendMessage("House size " + size + " generated with " + flags);
         } else {
             return false;

@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -260,6 +261,10 @@ final class RPGWorld {
                 return false;
             }
         }
+        for (Player player: world.getPlayers()) {
+            Location loc = player.getLocation();
+            if (questArea.contains(loc.getBlockX(), loc.getBlockZ())) return false;
+        }
         Set<Generator.Flag> flags = EnumSet.noneOf(Generator.Flag.class);
         List<Generator.Flag> styleFlags = new ArrayList<>();
         List<Generator.Flag> npcFlags = new ArrayList<>();
@@ -363,26 +368,27 @@ final class RPGWorld {
         Town town = towns.get(townId);
         if (npcId >= town.npcs.size()) return "Hello World";
         NPC npc = town.npcs.get(npcId);
-        if (npc.questId < 0 || npc.questId >= town.quests.size()) {
-            return npc.message;
-        } else {
-            Quest quest = town.quests.get(npc.questId);
-            if (quest.isSignedUp(player)) {
-                int progress = quest.getProgress(player);
-                if (progress == 0) {
-                    return quest.getQuestDescription();
-                } else if (progress >= quest.amount) {
-                    return "YOU DID IT"; // TODO
-                } else {
-                    return quest.getProgressReport(progress);
-                }
-            } else if (quest.minReputation > plugin.getReputations().getReputation(player, town.fraction)) {
-                return "You are not worthy of my quest.";
-            } else {
-                quest.signUp(player);
-                dirty = true;
-                return quest.getQuestDescription();
-            }
-        }
+        return npc.message;
+        // if (npc.questId < 0 || npc.questId >= town.quests.size()) {
+        //     return npc.message;
+        // } else {
+        //     Quest quest = town.quests.get(npc.questId);
+        //     if (quest.isSignedUp(player)) {
+        //         int progress = quest.getProgress(player);
+        //         if (progress == 0) {
+        //             return quest.getQuestDescription();
+        //         } else if (progress >= quest.amount) {
+        //             return "YOU DID IT"; // TODO
+        //         } else {
+        //             return quest.getProgressReport(progress);
+        //         }
+        //     } else if (quest.minReputation > plugin.getReputations().getReputation(player, town.fraction)) {
+        //         return "You are not worthy of my quest.";
+        //     } else {
+        //         quest.signUp(player);
+        //         dirty = true;
+        //         return quest.getQuestDescription();
+        //     }
+        // }
     }
 }

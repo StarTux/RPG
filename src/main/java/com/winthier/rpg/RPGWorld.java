@@ -350,8 +350,7 @@ final class RPGWorld {
             addTownCooldown -= 1;
         } else {
             tryToAddTown();
-            addTownCooldown = towns.size() * 10;
-            plugin.getLogger().info("Town add cooldown is " + addTownCooldown);
+            addTownCooldown = towns.size();
         }
         if (dirty) save();
     }

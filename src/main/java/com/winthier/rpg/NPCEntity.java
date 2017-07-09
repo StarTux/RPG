@@ -22,7 +22,10 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityPortalEnterEvent;
+import org.bukkit.event.entity.EntityPortalEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.util.Vector;
 
 @Getter @RequiredArgsConstructor
 public final class NPCEntity implements CustomEntity, TickableEntity {
@@ -41,21 +44,33 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
 
     @Override
     public Entity spawnEntity(Location location, Object conf) {
-        System.out.println(conf);
         EntityType et = null;
+        int townId = -1;
+        int npcId = -1;
         if (conf instanceof Map) {
             Map config = (Map)conf;
-            if (config.containsKey("type")) {
-                et = EntityType.fromName(config.get("type").toString().toUpperCase());
+            if (config.containsKey("type")) et = EntityType.fromName(config.get("type").toString().toUpperCase());
+            if (config.containsKey("town_id") && config.containsKey("npc_id")) {
+                townId = ((Number)config.get("town_id")).intValue();
+                npcId = ((Number)config.get("npc_id")).intValue();
             }
         }
         if (et == null) et = EntityType.VILLAGER;
-        return location.getWorld().spawnEntity(location, et);
+        Entity e = location.getWorld().spawnEntity(location, et);
+        if (townId > -1 && npcId > -1) {
+            e.addScoreboardTag("winthier.rpg.npc=" + townId + ":" + npcId);
+        }
+        return e;
     }
 
     @Override
     public EntityWatcher createEntityWatcher(Entity entity) {
         return new Watcher((LivingEntity)entity, this);
+    }
+
+    @Override
+    public void entityWatcherDidRegister(EntityWatcher watcher) {
+        ((Watcher)watcher).load();
     }
 
     @EventHandler
@@ -77,6 +92,17 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
         ((Watcher)context.getEntityWatcher()).onTouch(event.getPlayer());
     }
 
+    @EventHandler
+    public void onEntityPortalEnter(EntityPortalEnterEvent event, EntityContext context) {
+        context.getEntity().setPortalCooldown(999);
+    }
+
+    @EventHandler
+    public void onEntityPortal(EntityPortalEvent event, EntityContext context) {
+        event.setCancelled(true);
+        context.getEntity().setPortalCooldown(999);
+    }
+
     @Override
     public void onTick(EntityWatcher watcher) {
         ((Watcher)watcher).onTick();
@@ -90,8 +116,6 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
         private int npcId = -1;
         int ticks = -1;
         int touchCooldown = 0;
-        int messageIndex = 0;
-        List<String> messages = Arrays.asList("Welcome to Poto Village!", "I heard rumors of monsters returning.", "How did you get here?");
 
         void onTick() {
             ticks += 1;
@@ -111,21 +135,45 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
         void onTouch(Player player) {
             if (touchCooldown > 0) return;
             touchCooldown = 20;
-            if (messages.isEmpty()) return;
+            if (townId < 0 || npcId < 0) return;
+            RPGWorld rpgworld = plugin.getRPGWorld(entity.getWorld());
+            if (rpgworld == null) return;
             for (Entity nearby: entity.getWorld().getNearbyEntities(entity.getEyeLocation().add(0, 0.3, 0), 1, 1, 1)) {
                 if (!nearby.equals(entity) && nearby.getType() == EntityType.ARMOR_STAND) {
                     EntityWatcher nearbyWatcher = CustomPlugin.getInstance().getEntityManager().getEntityWatcher(nearby);
-                    if (nearbyWatcher != null && nearbyWatcher instanceof NPCSpeechEntity.Watcher && ((NPCSpeechEntity.Watcher)nearbyWatcher).getLiving().equals(entity)) {
+                    if (nearbyWatcher != null && nearbyWatcher instanceof NPCSpeechEntity.Watcher) {
                         return;
                     }
                 }
             }
             NPCSpeechEntity.Watcher speechWatcher = (NPCSpeechEntity.Watcher)CustomPlugin.getInstance().getEntityManager().spawnEntity(entity.getEyeLocation().add(0, 10, 0), NPCSpeechEntity.CUSTOM_ID);
             speechWatcher.setLiving(entity);
-            speechWatcher.getMessages().addAll(Msg.wrap(messages.get(messageIndex), 16));
+            speechWatcher.getMessages().addAll(Msg.wrap(rpgworld.getNPCMessage(townId, npcId, player), 16));
             speechWatcher.setColor(ChatColor.GREEN);
-            messageIndex += 1;
-            if (messageIndex >= messages.size()) messageIndex = 0;
+            Location loc = entity.getLocation();
+            Vector dir = player.getEyeLocation().toVector().subtract(entity.getEyeLocation().toVector()).normalize();
+            loc.setDirection(dir);
+            entity.teleport(loc);
+        }
+
+        void setIds(int town, int npc) {
+            this.townId = town;
+            this.npcId = npc;
+        }
+
+        void load() {
+            try {
+                for (String tag: entity.getScoreboardTags()) {
+                    if (tag.startsWith("winthier.rpg.npc=")) {
+                        String[] tok1 = tag.split("=", 2);
+                        String[] tok2 = tok1[1].split(":", 2);
+                        this.townId = Integer.parseInt(tok2[0]);
+                        this.npcId = Integer.parseInt(tok2[1]);
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 

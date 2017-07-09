@@ -100,9 +100,9 @@ public final class NPCSpeechEntity implements CustomEntity, TickableEntity {
                     return;
                 }
                 if (living.getCustomName() == null) {
-                    entity.teleport(living.getEyeLocation().add(0, 0.35, 0));
+                    entity.teleport(living.getEyeLocation().add(0, 0.15, 0));
                 } else {
-                    entity.teleport(living.getEyeLocation().add(0, 0.5, 0));
+                    entity.teleport(living.getEyeLocation().add(0, 0.3, 0));
                 }
                 if (!teleported) {
                     teleported = true;

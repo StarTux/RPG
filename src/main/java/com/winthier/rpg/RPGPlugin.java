@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.Getter;
 import org.bukkit.World;
 import org.bukkit.command.Command;
@@ -25,32 +26,22 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class RPGPlugin extends JavaPlugin implements Listener {
     Generator generator = new Generator();
     private final Random random = new Random();
-    private final List<String> allowedWorlds = new ArrayList<>();
-    private final Map<UUID, RPGWorld> worlds = new HashMap<>();
+    String worldName = "";
+    RPGWorld world = null;
     private Messages messages = null;
-    private boolean doCreateTowns = false;
+    private boolean createTowns = false;
     private Reputations reputations;
 
     @Override
     public void onEnable() {
         getServer().getPluginManager().registerEvents(this, this);
-        getServer().getScheduler().runTaskTimer(this, () -> on20Ticks(), 20, 20);
+        getServer().getScheduler().runTaskTimer(this, () -> { if (world != null) world.onTick(); }, 1, 1);
     }
 
     @Override
     public void onDisable() {
-        for (RPGWorld world: worlds.values()) {
-            if (world.isDirty()) world.save();
-        }
-    }
-
-    void on20Ticks() {
-        for (String name: allowedWorlds) {
-            World world = getServer().getWorld(name);
-            if (world != null) {
-                getRPGWorld(world).on20Ticks();
-            }
-        }
+        if (world != null && world.isDirty()) world.save();
+        world = null;
     }
 
     @EventHandler
@@ -61,14 +52,10 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         reputations = null;
         event.addEntity(new NPCEntity(this));
         event.addEntity(new NPCSpeechEntity(this));
-        worlds.clear();
-        allowedWorlds.clear();
-        allowedWorlds.addAll(getConfig().getStringList("worlds"));
-        doCreateTowns = getConfig().getBoolean("create_towns");
-        for (RPGWorld world: worlds.values()) {
-            if (world.isDirty()) world.save();
-        }
-        worlds.clear();
+        worldName = getConfig().getString("worlds", "Resource");
+        createTowns = getConfig().getBoolean("create_towns");
+        if (world != null && world.isDirty()) world.save();
+        world = null;
     }
 
     @Override
@@ -77,6 +64,17 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         String cmd = args.length > 0 ? args[0].toLowerCase() : null;
         if (cmd == null) {
             return false;
+        } else if ("tp".equals(cmd) && args.length == 2) {
+            if (player == null || getRPGWorld() == null) return false;
+            String townName = args[1];
+            RPGWorld.Town town = world.findTown(townName);
+            if (town == null) {
+                player.sendMessage("Town not found: " + townName);
+                return true;
+            } else {
+                player.teleport(world.getWorld().getHighestBlockAt((town.area.ax + town.area.bx) / 2, (town.area.ay + town.area.by) / 2).getLocation().add(0.5, 0, 0.5));
+                player.sendMessage("Teleported to " + town.name);
+            }
         } else if (cmd.equals("genhouse")) {
             int size;
             if (args.length >= 2) {
@@ -118,15 +116,26 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         return true;
     }
 
-    RPGWorld getRPGWorld(World world) {
-        if (!allowedWorlds.contains(world.getName())) return null;
-        RPGWorld result = worlds.get(world.getUID());
-        if (result == null) {
-            result = new RPGWorld(this, world);
-            worlds.put(world.getUID(), result);
-            result.load();
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String label, String[] args) {
+        String cmd = args.length > 0 ? args[0].toLowerCase() : null;
+        if (getRPGWorld() == null) return null;
+        if (cmd == null) return null;
+        if ("tp".equals(cmd) && args.length == 2) {
+            String term = args[1].toLowerCase();
+            return world.getTowns().stream().filter(t -> t.name.toLowerCase().startsWith(term)).map(t -> t.name).collect(Collectors.toList());
         }
-        return result;
+        return null;
+    }
+
+    RPGWorld getRPGWorld() {
+        if (world == null) {
+            World bworld = getServer().getWorld(worldName);
+            if (bworld == null) return null;
+            world = new RPGWorld(this, bworld);
+            world.load();
+        }
+        return world;
     }
 
     Messages getMessages() {

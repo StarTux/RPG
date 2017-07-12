@@ -1,2 +1,2 @@
-worlds: [ Resource ]
+world: Resource
 create_towns: true

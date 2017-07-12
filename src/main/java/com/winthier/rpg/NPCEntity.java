@@ -6,13 +6,18 @@ import com.winthier.custom.entity.EntityContext;
 import com.winthier.custom.entity.EntityWatcher;
 import com.winthier.custom.entity.TickableEntity;
 import com.winthier.custom.util.Msg;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
@@ -114,21 +119,84 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
         private final NPCEntity customEntity;
         private int townId = -1;
         private int npcId = -1;
-        int ticks = -1;
+        int moveCooldown = 20;
         int touchCooldown = 0;
+        boolean moving, falling;
+        Vector moveFrom, moveTo;
+        int moveProgress;
+        float moveYaw;
+        BlockFace moveDirection;
+        int moveDuration;
 
         void onTick() {
-            ticks += 1;
-            if (ticks % 20 == 0) {
-                entity.setAI(false);
-                if (plugin.getRandom().nextBoolean()) {
-                    Location loc = entity.getLocation();
-                    loc.setYaw(loc.getYaw() + plugin.getRandom().nextFloat() * 45.0f - plugin.getRandom().nextFloat() * 45.0f);
-                    entity.teleport(loc);
+            if (touchCooldown > 0) touchCooldown -= 1;
+            if (falling || moving) {
+                moveProgress += falling ? 2 : 1;
+                Vector v = moveFrom.clone().multiply(10 - moveProgress).add(moveTo.clone().multiply(moveProgress)).multiply(0.1);
+                Location loc = v.toLocation(entity.getWorld(), moveYaw, 0);
+                entity.teleport(loc);
+                if (moveProgress >= 10) {
+                    if (moving && !falling && moveDuration > 0) {
+                        Block blockTo = entity.getLocation().getBlock().getRelative(moveDirection);
+                        if (!blockTo.getType().isSolid() && !blockTo.getRelative(0, 1, 0).getType().isSolid() && !blockTo.getRelative(0, 2, 0).getType().isSolid()) {
+                            moveFrom = v;
+                            moveTo = blockTo.getLocation().add(0.5, 0, 0.5).toVector();
+                            moveProgress = 0;
+                            moveDuration -= 1;
+                        } else {
+                            moving = falling = false;
+                            moveDuration = 0;
+                        }
+                    } else {
+                        moving = falling = false;
+                        moveDuration = 0;
+                    }
                 }
-            }
-            if (touchCooldown > 0) {
-                touchCooldown -= 1;
+            } else if (moveCooldown > 0) {
+                moveCooldown -= 1;
+            } else {
+                moveCooldown = 20 + plugin.getRandom().nextInt(80);
+                entity.setAI(false);
+                if (isTalking()) return;
+                Block block = entity.getLocation().getBlock();
+                if (!block.getRelative(0, -1, 0).getType().isSolid()) {
+                    moving = false;
+                    falling = true;
+                    moveDuration = 0;
+                    moveFrom = entity.getLocation().toVector();
+                    moveTo = block.getRelative(0, -1, 0).getLocation().add(0.5, 0.0, 0.5).toVector();
+                    moveProgress = 0;
+                    moveYaw = entity.getLocation().getYaw();
+                } else {
+                    List <BlockFace> faces = Arrays.asList(BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST);
+                    Collections.shuffle(faces, plugin.getRandom());
+                    Block toBlock = null;
+                    BlockFace toFace = null;
+                    for (BlockFace face: faces) {
+                        Block rel = block.getRelative(face);
+                        if ((rel.getType() == Material.STEP || rel.getType() == Material.WOOD_STEP) && (rel.getData() & 8) == 0) {
+                            rel = rel.getRelative(0, 1, 0);
+                        }
+                        if (!rel.getType().isSolid() && !rel.getRelative(0, 1, 0).getType().isSolid() && !rel.getRelative(0, 2, 0).getType().isSolid()) {
+                            toBlock = rel;
+                            toFace = face;
+                            break;
+                        }
+                    }
+                    if (toBlock == null) return;
+                    moving = true;
+                    moveFrom = entity.getLocation().toVector();
+                    moveTo = toBlock.getLocation().add(0.5, 0, 0.5).toVector();
+                    moveProgress = 0;
+                    moveDirection = toFace;
+                    switch (toFace) {
+                    case NORTH: moveYaw = 180.0f; break;
+                    case EAST: moveYaw = 270.0f; break;
+                    case SOUTH: moveYaw = 0.0f; break;
+                    case WEST: moveYaw = 90.0f; break;
+                    }
+                    moveDuration = plugin.getRandom().nextInt(4);
+                }
             }
         }
 
@@ -136,16 +204,11 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
             if (touchCooldown > 0) return;
             touchCooldown = 20;
             if (townId < 0 || npcId < 0) return;
-            RPGWorld rpgworld = plugin.getRPGWorld(entity.getWorld());
+            RPGWorld rpgworld = plugin.getRPGWorld();
             if (rpgworld == null) return;
-            for (Entity nearby: entity.getWorld().getNearbyEntities(entity.getEyeLocation().add(0, 0.3, 0), 1, 1, 1)) {
-                if (!nearby.equals(entity) && nearby.getType() == EntityType.ARMOR_STAND) {
-                    EntityWatcher nearbyWatcher = CustomPlugin.getInstance().getEntityManager().getEntityWatcher(nearby);
-                    if (nearbyWatcher != null && nearbyWatcher instanceof NPCSpeechEntity.Watcher) {
-                        return;
-                    }
-                }
-            }
+            if (falling) return;
+            if (isTalking()) return;
+            moving = false;
             NPCSpeechEntity.Watcher speechWatcher = (NPCSpeechEntity.Watcher)CustomPlugin.getInstance().getEntityManager().spawnEntity(entity.getEyeLocation().add(0, 10, 0), NPCSpeechEntity.CUSTOM_ID);
             speechWatcher.setLiving(entity);
             speechWatcher.getMessages().addAll(Msg.wrap(rpgworld.getNPCMessage(townId, npcId, player), 16));
@@ -174,6 +237,20 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
             } catch (Exception e) {
                 e.printStackTrace();
             }
+        }
+
+        boolean isTalking() {
+            for (Entity nearby: entity.getWorld().getNearbyEntities(entity.getEyeLocation().add(0, 0.3, 0), 1, 1, 1)) {
+                if (!nearby.equals(entity) && nearby.getType() == EntityType.ARMOR_STAND) {
+                    EntityWatcher nearbyWatcher = CustomPlugin.getInstance().getEntityManager().getEntityWatcher(nearby);
+                    if (nearbyWatcher != null && nearbyWatcher instanceof NPCSpeechEntity.Watcher) {
+                        if (entity.equals(((NPCSpeechEntity.Watcher)nearbyWatcher).getLiving())) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
         }
     }
 

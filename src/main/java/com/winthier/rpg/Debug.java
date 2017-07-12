@@ -2,7 +2,6 @@ package com.winthier.rpg;
 
 import com.winthier.rpg.Generator.House;
 import com.winthier.rpg.Generator.RoomTile;
-import com.winthier.rpg.Generator.Vec2;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
@@ -15,22 +14,30 @@ public final class Debug {
     private Debug() { }
 
     static void printHouse(House house) {
-        int sx = 0;
-        int sy = 0;
+        if (house.tiles.isEmpty()) return;
+        int ax = Integer.MAX_VALUE;
+        int ay = Integer.MAX_VALUE;
+        int sx = Integer.MIN_VALUE;
+        int sy = Integer.MIN_VALUE;
         for (Vec2 vec: house.tiles.keySet()) {
+            if (vec.x < ax) ax = vec.x;
+            if (vec.y < ay) ay = vec.y;
             if (vec.x > sx) sx = vec.x;
             if (vec.y > sy) sy = vec.y;
         }
+        sx -= ax;
+        sy -= ay;
         System.out.println("" + sx + "," + sy);
         for (int y = 0; y <= sy; y += 1) {
             StringBuilder sb = new StringBuilder();
             for (int x = 0; x <= sx; x += 1) {
-                RoomTile tile = house.tiles.get(new Vec2(x, y));
+                Vec2 vec = new Vec2(x + ax, y + ay);
+                RoomTile tile = house.tiles.get(vec);
                 if (tile == null) {
                     sb.append(" ");
                 } else if (tile == RoomTile.WALL) {
-                    RoomTile left = house.tiles.get(new Vec2(x, y + 1));
-                    RoomTile right = house.tiles.get(new Vec2(x, y - 1));
+                    RoomTile left = house.tiles.get(vec.relative(0, 1));
+                    RoomTile right = house.tiles.get(vec.relative(0, -1));
                     if (left == null || right == null || left == RoomTile.FLOOR || right == RoomTile.FLOOR) {
                         sb.append("=");
                     } else {

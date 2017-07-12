@@ -29,6 +29,7 @@ final class RPGWorld {
     private final List<Town> towns = new ArrayList<>();
     private boolean dirty = false;
     private int addTownCooldown = 0;
+    private int ticks;
 
     RPGWorld(RPGPlugin plugin, World world) {
         this.plugin = plugin;
@@ -52,6 +53,11 @@ final class RPGWorld {
         } catch (IOException ioe) {
             ioe.printStackTrace();
         }
+    }
+
+    Town findTown(String name) {
+        for (Town town: towns) if (name.equals(town.name)) return town;
+        return null;
     }
 
     static final class Town {
@@ -202,51 +208,6 @@ final class RPGWorld {
         }
     }
 
-    @Value @RequiredArgsConstructor
-    static final class Vec3 {
-        final int x, y, z;
-
-        Vec3(List<Integer> list) {
-            x = list.get(0);
-            y = list.get(1);
-            z = list.get(2);
-        }
-
-        List<Integer> serialize() {
-            return Arrays.asList(x, y, z);
-        }
-    }
-
-    @Value @RequiredArgsConstructor
-    static final class Rectangle {
-        final int ax, ay, bx, by;
-
-        Rectangle(List<Integer> list) {
-            ax = list.get(0);
-            ay = list.get(1);
-            bx = list.get(2);
-            by = list.get(3);
-        }
-
-        List<Integer> serialize() {
-            return Arrays.asList(ax, ay, bx, by);
-        }
-
-        boolean contains(int x, int y) {
-            return x >= ax && x <= bx && y >= ay && y <= by;
-        }
-
-        public boolean intersects(Rectangle other) {
-            if (bx < other.ax || ax >= other.bx) return false;
-            if (by < other.ay || ay >= other.by) return false;
-            return true;
-        }
-
-        Rectangle grow(int size) {
-            return new Rectangle(ax - size, ay - size, bx + size, by + size);
-        }
-    }
-
     boolean tryToAddTown() {
         Generator generator = new Generator();
         int size = 8 + generator.random.nextInt(12);
@@ -272,22 +233,26 @@ final class RPGWorld {
             if (flag.strategy == Generator.Flag.Strategy.STYLE) styleFlags.add(flag);
             if (flag.strategy == Generator.Flag.Strategy.NPC) npcFlags.add(flag);
         }
-        flags.add(styleFlags.get(generator.random.nextInt(styleFlags.size())));
-        flags.add(npcFlags.get(generator.random.nextInt(npcFlags.size())));
+        Generator.Flag styleFlag = styleFlags.get(generator.random.nextInt(styleFlags.size()));
+        Generator.Flag npcFlag = npcFlags.get(generator.random.nextInt(npcFlags.size()));
+        flags.add(styleFlag);
+        flags.add(npcFlag);
         flags.add(Generator.Flag.SURFACE);
         gt.townId = towns.size();
+        final String doTileDrops = "doTileDrops";
+        String oldGameRuleValue = world.getGameRuleValue(doTileDrops);
+        world.setGameRuleValue(doTileDrops, "false");
         generator.plantTown(world, gt, flags);
+        world.setGameRuleValue(doTileDrops, oldGameRuleValue);
         Town town = new Town(area, generator.generateTownName());
         town.tags.addAll(flags.stream().map(f -> f.name().toLowerCase()).collect(Collectors.toList()));
-        if (flags.contains("villager")) {
-            town.fraction = "villager";
-        } else if (flags.contains("undead")) {
-            town.fraction = "undead";
-        } else {
-            town.fraction = "villager";
-        }
+        // switch (npcFlag) {
+        // case UNDEAD: town.fraction = Fraction.UNDEAD;
+        // case VILLAGER: default: town.fraction = Fraction.VILLAGER;
+        // }
+        town.fraction = "undead"; // TODO
         for (Generator.House house: gt.houses) {
-            for (Generator.Vec3 vec: house.npcs) {
+            for (Vec3 vec: house.npcs) {
                 NPC npc = new NPC(new Vec3(vec.x, vec.y, vec.z));
                 npc.name = generator.generateTownName();
                 String message = plugin.getMessages().deal(Messages.Type.RANDOM);
@@ -345,14 +310,17 @@ final class RPGWorld {
         return true;
     }
 
-    void on20Ticks() {
-        if (addTownCooldown > 0) {
-            addTownCooldown -= 1;
-        } else {
-            tryToAddTown();
-            addTownCooldown = towns.size();
+    void onTick() {
+        ticks += 1;
+        if (plugin.isCreateTowns()) {
+            if (addTownCooldown > 0) {
+                addTownCooldown -= 1;
+            } else {
+                tryToAddTown();
+                addTownCooldown = towns.size();
+            }
         }
-        if (dirty) save();
+        if (ticks % 20 == 0 && dirty) save();
     }
 
     NPC findNPC(int townId, int npcId) {
@@ -389,5 +357,13 @@ final class RPGWorld {
         //         return quest.getQuestDescription();
         //     }
         // }
+    }
+
+    enum Fraction {
+        VILLAGER,
+        ZOMBIE,
+        SKELETON,
+        WITCH,
+        CREEPER;
     }
 }

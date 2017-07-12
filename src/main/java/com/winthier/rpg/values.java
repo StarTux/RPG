@@ -47,6 +47,10 @@ final class Cuboid {
     List<Integer> serialize() {
         return Arrays.asList(ax, ay, az, bx, by, bz);
     }
+
+    boolean contains(int x, int y, int z) {
+        return x >= ax && y >= ay && z >= az && x <= bx && y <= by && z <= bz;
+    }
 }
 
 @Value @RequiredArgsConstructor

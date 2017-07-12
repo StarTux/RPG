@@ -24,12 +24,12 @@ import org.bukkit.entity.Player;
 
 @Getter
 final class RPGWorld {
-    private final RPGPlugin plugin;
-    private final World world;
-    private final List<Town> towns = new ArrayList<>();
-    private boolean dirty = false;
-    private int addTownCooldown = 0;
-    private int ticks;
+    final RPGPlugin plugin;
+    final World world;
+    final List<Town> towns = new ArrayList<>();
+    boolean dirty = false;
+    int addTownCooldown = 0;
+    int ticks;
 
     RPGWorld(RPGPlugin plugin, World world) {
         this.plugin = plugin;
@@ -60,12 +60,37 @@ final class RPGWorld {
         return null;
     }
 
+    static final class House {
+        final Cuboid boundingBox;
+        final List<Cuboid> rooms = new ArrayList<>();
+
+        House(Cuboid boundingBox, List<Cuboid> rooms) {
+            this.boundingBox = boundingBox;
+            this.rooms.addAll(rooms);
+        }
+
+        House(ConfigurationSection config) {
+            boundingBox = new Cuboid(config.getIntegerList("bounding_box"));
+            for (Object o: config.getList("rooms")) {
+                rooms.add(new Cuboid((List<Integer>)o));
+            }
+        }
+
+        Map<String, Object> serialize() {
+            Map<String, Object> result = new HashMap<>();
+            result.put("bounding_box", boundingBox.serialize());
+            result.put("rooms", rooms.stream().map(r -> r.serialize()).collect(Collectors.toList()));
+            return result;
+        }
+    }
+
     static final class Town {
         final Rectangle area;
         final Rectangle questArea;
         final List<NPC> npcs = new ArrayList<>();
         final List<Quest> quests = new ArrayList<>();
         final List<String> tags = new ArrayList<>();
+        final List<House> houses = new ArrayList<>();
         final String name;
         String fraction = "villager";
 
@@ -84,6 +109,10 @@ final class RPGWorld {
                 ConfigurationSection section = config.createSection("tmp", map);
                 quests.add(new Quest(section));
             }
+            for (Map<?, ?> map: config.getMapList("houses")) {
+                ConfigurationSection section = config.createSection("tmp", map);
+                houses.add(new House(section));
+            }
             this.area = new Rectangle(config.getIntegerList("area"));
             this.questArea = area.grow(128);
             this.name = config.getString("name");
@@ -95,6 +124,7 @@ final class RPGWorld {
             Map<String, Object> result = new HashMap<>();
             result.put("npcs", npcs.stream().map(npc -> npc.serialize()).collect(Collectors.toList()));
             result.put("quests", quests.stream().map(quest -> quest.serialize()).collect(Collectors.toList()));
+            result.put("houses", houses.stream().map(house -> house.serialize()).collect(Collectors.toList()));
             result.put("area", area.serialize());
             result.put("name", name);
             result.put("tags", tags);
@@ -246,6 +276,9 @@ final class RPGWorld {
         world.setGameRuleValue(doTileDrops, oldGameRuleValue);
         Town town = new Town(area, generator.generateTownName());
         town.tags.addAll(flags.stream().map(f -> f.name().toLowerCase()).collect(Collectors.toList()));
+        for (Generator.House gh: gt.houses) {
+            town.houses.add(new House(gh.boundingBox, gh.rooms.stream().map(r -> r.boundingBox).collect(Collectors.toList())));
+        }
         // switch (npcFlag) {
         // case UNDEAD: town.fraction = Fraction.UNDEAD;
         // case VILLAGER: default: town.fraction = Fraction.VILLAGER;

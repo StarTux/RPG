@@ -222,6 +222,24 @@ final class Generator {
             Collections.sort(floorLevels);
             floorLevel = floorLevels.get(floorLevels.size() / 2);
         }
+        {
+            int ax, az, bx, bz;
+            ax = az = Integer.MAX_VALUE;
+            bx = bz = Integer.MIN_VALUE;
+            int ay = floorLevel;
+            int by = floorLevel + 4;
+            house.boundingBox = new Cuboid(ax, ay, az, bx, by, bz);
+            for (Room room: house.rooms) {
+                Cuboid bb = new Cuboid(room.ax + start.getX(), ay, room.ay + start.getZ(),
+                                       room.bx + start.getX(), by, room.by + start.getZ());
+                room.boundingBox = bb;
+                if (ax > bb.ax) ax = bb.ax;
+                if (az > bb.az) az = bb.az;
+                if (bx < bb.bx) bx = bb.bx;
+                if (bz < bb.bz) bz = bb.bz;
+            }
+            house.boundingBox = new Cuboid(ax, ay, az, bx, by, bz);
+        }
         Material matDoor;
         switch (flagDoor) {
         case RANDOM:

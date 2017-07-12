@@ -20,6 +20,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 @Getter
@@ -138,6 +139,11 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         return world;
     }
 
+    RPGWorld getRPGWorld(World bworld) {
+        if (!worldName.equals(bworld.getName())) return null;
+        return getRPGWorld();
+    }
+
     Messages getMessages() {
         if (messages == null) {
             messages = new Messages(this);
@@ -151,5 +157,32 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
             reputations = new Reputations(this);
         }
         return reputations;
+    }
+
+    @EventHandler
+    public void onBlockBreak(BlockBreakEvent event) {
+        RPGWorld rpgWorld = getRPGWorld(event.getBlock().getWorld());
+        int x = event.getBlock().getX();
+        int y = event.getBlock().getY();
+        int z = event.getBlock().getZ();
+        for (RPGWorld.Town town: rpgWorld.towns) {
+            if (town.area.contains(x, z)) {
+                event.getPlayer().sendMessage("Block Break in Town " + town.name);
+                int houseIndex = 0;
+                for (RPGWorld.House house: town.houses) {
+                    houseIndex += 1;
+                    if (house.boundingBox.contains(x, y, z)) {
+                        event.getPlayer().sendMessage(" and House " + houseIndex);
+                        int roomIndex = 0;
+                        for (Cuboid room: house.rooms) {
+                            roomIndex += 1;
+                            if (room.contains(x, y, z)) {
+                                event.getPlayer().sendMessage(" and Room " + roomIndex);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

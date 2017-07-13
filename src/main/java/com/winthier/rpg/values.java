@@ -51,6 +51,10 @@ final class Cuboid {
     boolean contains(int x, int y, int z) {
         return x >= ax && y >= ay && z >= az && x <= bx && y <= by && z <= bz;
     }
+
+    Cuboid grow(int blocks) {
+        return new Cuboid(ax - 1, ay - 1, az - 1, bx + 1, by + 1, bz + 1);
+    }
 }
 
 @Value @RequiredArgsConstructor

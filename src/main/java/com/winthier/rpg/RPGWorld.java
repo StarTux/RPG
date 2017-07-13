@@ -17,9 +17,11 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
 @Getter
@@ -92,7 +94,8 @@ final class RPGWorld {
         final List<String> tags = new ArrayList<>();
         final List<House> houses = new ArrayList<>();
         final String name;
-        String fraction = "villager";
+        Generator.Flag fraction = Generator.Flag.VILLAGER;
+        boolean visited = false;
 
         Town(Rectangle area, String name) {
             this.area = area;
@@ -103,21 +106,26 @@ final class RPGWorld {
         Town(ConfigurationSection config) {
             for (Map<?, ?> map: config.getMapList("npcs")) {
                 ConfigurationSection section = config.createSection("tmp", map);
-                npcs.add(new NPC(section));
+                this.npcs.add(new NPC(section));
             }
             for (Map<?, ?> map: config.getMapList("quests")) {
                 ConfigurationSection section = config.createSection("tmp", map);
-                quests.add(new Quest(section));
+                this.quests.add(new Quest(section));
             }
             for (Map<?, ?> map: config.getMapList("houses")) {
                 ConfigurationSection section = config.createSection("tmp", map);
-                houses.add(new House(section));
+                this.houses.add(new House(section));
             }
             this.area = new Rectangle(config.getIntegerList("area"));
             this.questArea = area.grow(128);
             this.name = config.getString("name");
-            this.fraction = config.getString("fraction", "villager");
+            try {
+                this.fraction = Generator.Flag.valueOf(config.getString("fraction", "VILLAGER").toUpperCase());
+            } catch (IllegalArgumentException iae) {
+                iae.printStackTrace();
+            }
             this.tags.addAll(config.getStringList("tags"));
+            this.visited = config.getBoolean("visited");
         }
 
         Map<String, Object> serialize() {
@@ -128,7 +136,8 @@ final class RPGWorld {
             result.put("area", area.serialize());
             result.put("name", name);
             result.put("tags", tags);
-            result.put("fraction", fraction);
+            result.put("fraction", fraction.name().toLowerCase());
+            result.put("visited", visited);
             return result;
         }
     }
@@ -165,24 +174,19 @@ final class RPGWorld {
             NONE, KILL, SHEAR, BREAK, FISH;
         }
 
-        String getQuestDescription() {
-            return type.name();
-        }
-
-        String getProgressReport(int progress) {
-            return "" + progress + " out of " + amount;
-        }
-
         final Type type;
-        final Set<String> flags = new HashSet<>();
-        final int amount;
+        final Map<String, String> settings = new HashMap<>();
         final Map<UUID, Integer> progress = new HashMap<>();
+        final int amount;
         int minReputation;
+        transient Material material;
+        transient EntityType entityType;
+        transient int data;
 
-        Quest(Type type, Set<String> flags, int amount) {
+        Quest(Type type, int amount, Map<String, String> settings) {
             this.type = type;
-            this.flags.addAll(flags);
             this.amount = amount;
+            for (String key: settings.keySet()) this.settings.put(key, settings.get(key));
         }
 
         Quest(ConfigurationSection config) {
@@ -194,9 +198,14 @@ final class RPGWorld {
                 type = Type.NONE;
             }
             this.type = type;
-            flags.addAll(config.getStringList("flags"));
             this.amount = config.getInt("amount");
-            ConfigurationSection section = config.getConfigurationSection("progress");
+            ConfigurationSection section = config.getConfigurationSection("settings");
+            if (section != null) {
+                for (String key: section.getKeys(false)) {
+                    settings.put(key, section.getString(key));
+                }
+            }
+            section = config.getConfigurationSection("progress");
             if (section != null) {
                 for (String key: section.getKeys(false)) {
                     progress.put(UUID.fromString(key), section.getInt(key));
@@ -208,8 +217,8 @@ final class RPGWorld {
         Map<String, Object> serialize() {
             Map<String, Object> result = new HashMap<>();
             result.put("type", type.name());
-            result.put("flags", new ArrayList<>(flags));
             result.put("amount", amount);
+            result.put("settings", settings.entrySet().stream().collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue())));
             result.put("progress", progress.entrySet().stream().collect(Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue())));
             result.put("min_reputation", minReputation);
             return result;
@@ -236,6 +245,14 @@ final class RPGWorld {
             if (score > this.amount) score = this.amount;
             progress.put(player.getUniqueId(), score);
         }
+
+        String getQuestDescription() {
+            return type.name();
+        }
+
+        String getProgressReport(int progress) {
+            return "" + progress + " out of " + amount;
+        }
     }
 
     boolean tryToAddTown() {
@@ -258,15 +275,15 @@ final class RPGWorld {
         }
         Set<Generator.Flag> flags = EnumSet.noneOf(Generator.Flag.class);
         List<Generator.Flag> styleFlags = new ArrayList<>();
-        List<Generator.Flag> npcFlags = new ArrayList<>();
+        List<Generator.Flag> fractionFlags = new ArrayList<>();
         for (Generator.Flag flag: Generator.Flag.values()) {
             if (flag.strategy == Generator.Flag.Strategy.STYLE) styleFlags.add(flag);
-            if (flag.strategy == Generator.Flag.Strategy.NPC) npcFlags.add(flag);
+            if (flag.strategy == Generator.Flag.Strategy.FRACTION) fractionFlags.add(flag);
         }
-        Generator.Flag styleFlag = styleFlags.get(generator.random.nextInt(styleFlags.size()));
-        Generator.Flag npcFlag = npcFlags.get(generator.random.nextInt(npcFlags.size()));
-        flags.add(styleFlag);
-        flags.add(npcFlag);
+        Generator.Flag flagStyle = styleFlags.get(generator.random.nextInt(styleFlags.size()));
+        Generator.Flag flagFraction = fractionFlags.get(generator.random.nextInt(fractionFlags.size()));
+        flags.add(flagStyle);
+        flags.add(flagFraction);
         flags.add(Generator.Flag.SURFACE);
         gt.townId = towns.size();
         final String doTileDrops = "doTileDrops";
@@ -279,64 +296,77 @@ final class RPGWorld {
         for (Generator.House gh: gt.houses) {
             town.houses.add(new House(gh.boundingBox, gh.rooms.stream().map(r -> r.boundingBox).collect(Collectors.toList())));
         }
-        // switch (npcFlag) {
-        // case UNDEAD: town.fraction = Fraction.UNDEAD;
-        // case VILLAGER: default: town.fraction = Fraction.VILLAGER;
-        // }
-        town.fraction = "undead"; // TODO
-        for (Generator.House house: gt.houses) {
-            for (Vec3 vec: house.npcs) {
-                NPC npc = new NPC(new Vec3(vec.x, vec.y, vec.z));
-                npc.name = generator.generateTownName();
-                String message = plugin.getMessages().deal(Messages.Type.RANDOM);
-                message = message.replace("%town_name%", town.name);
-                message = message.replace("%npc_name%", npc.name);
-                npc.message = message;
-                town.npcs.add(npc);
-            }
-        }
+        town.fraction = flagFraction;
+        // Quests
         int totalQuests = Math.min(town.npcs.size(), 3 + generator.random.nextInt(3));
-        List<Integer> npcIds = new ArrayList<>();
-        for (int i = 0; i < town.npcs.size(); i += 1) npcIds.add(i);
-        Collections.shuffle(npcIds, generator.random);
         for (int i = 0; i < totalQuests; i += 1) {
             Quest.Type questType = Quest.Type.values()[generator.random.nextInt(Quest.Type.values().length)];
-            Set<String> questFlags = new HashSet<>();
+            Map<String, String> questSettings = new HashMap<>();
+            int questAmount;
             switch (questType) {
             case KILL:
                 switch (generator.random.nextInt(4)) {
-                case 0: questFlags.add("zombie"); break;
-                case 1: questFlags.add("spider"); break;
-                case 2: questFlags.add("creeper"); break;
-                case 3: default: questFlags.add("skeleton");
+                case 0: questSettings.put("entity_type", "zombie"); break;
+                case 1: questSettings.put("entity_type", "spider"); break;
+                case 2: questSettings.put("entity_type", "creeper"); break;
+                case 3: default: questSettings.put("entity_type", "skeleton");
                 }
+                questAmount = 5 + generator.random.nextInt(15);
                 break;
             case SHEAR:
-                questFlags.add("sheep");
+                questSettings.put("entity_type", "sheep");
+                questAmount = 5 + generator.random.nextInt(25);
                 break;
             case BREAK:
                 switch (generator.random.nextInt(5)) {
-                case 0: questFlags.add("sand"); break;
-                case 1: questFlags.add("diamond_ore"); break;
-                case 2: questFlags.add("iron_ore"); break;
-                case 3: questFlags.add("gold_ore"); break;
-                case 4: default: questFlags.add("coal_ore");
+                case 0: questSettings.put("material", "sand"); break;
+                case 1: questSettings.put("material", "diamond_ore"); break;
+                case 2: questSettings.put("material", "iron_ore"); break;
+                case 3: questSettings.put("material", "gold_ore"); break;
+                case 4: default: questSettings.put("material", "coal_ore");
                 }
+                questAmount = 5 + generator.random.nextInt(35);
                 break;
             case FISH:
-                questFlags.add("fish");
+                questAmount = 5 + generator.random.nextInt(5);
                 break;
-            default: break;
+            default:
+                questAmount = 42;
+                break;
             }
-            Quest quest = new Quest(questType, questFlags, 5 + generator.random.nextInt(55));
+            Quest quest = new Quest(questType, questAmount, questSettings);
             if (i == 0) {
                 quest.minReputation = -999;
             } else {
                 quest.minReputation = (i - 1) * 20;
             }
-            town.npcs.get(npcIds.remove(0)).questId = town.quests.size();
             town.quests.add(quest);
         }
+        // NPCs
+        int npc_greetings = 1;
+        int npc_quests = town.quests.size();
+        for (Generator.House house: gt.houses) {
+            for (Vec3 vec: house.npcs) {
+                NPC npc = new NPC(new Vec3(vec.x, vec.y, vec.z));
+                npc.name = generator.generateTownName();
+                String message;
+                if (npc_quests > 0) {
+                    npc_quests -= 1;
+                    npc.questId = npc_quests;
+                    message = plugin.getMessages().deal(Messages.Type.RANDOM);
+                } else if (npc_greetings > 0) {
+                    npc_greetings -= 1;
+                    message = plugin.getMessages().deal(Messages.Type.GREETING);
+                    message = message.replace("%town_name%", town.name);
+                } else {
+                    message = plugin.getMessages().deal(Messages.Type.RANDOM);
+                }
+                message = message.replace("%npc_name%", npc.name);
+                npc.message = message;
+                town.npcs.add(npc);
+            }
+        }
+        Collections.shuffle(town.npcs, generator.random);
         towns.add(town);
         save();
         plugin.getLogger().info("Town " + town.name + " created at " + gt.ax + " " + gt.ay);
@@ -390,13 +420,5 @@ final class RPGWorld {
         //         return quest.getQuestDescription();
         //     }
         // }
-    }
-
-    enum Fraction {
-        VILLAGER,
-        ZOMBIE,
-        SKELETON,
-        WITCH,
-        CREEPER;
     }
 }

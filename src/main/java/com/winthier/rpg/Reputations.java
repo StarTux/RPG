@@ -25,19 +25,19 @@ final class Reputations {
         }
     }
 
-    int getReputation(Player player, String fraction) {
+    int getReputation(Player player, Generator.Flag fraction) {
         if (config == null) load();
         ConfigurationSection section = config.getConfigurationSection(player.getUniqueId().toString());
         if (section == null) return 0;
-        return section.getInt(fraction, 0);
+        return section.getInt(fraction.name(), 0);
     }
 
-    int giveRepurtation(Player player, String fraction, int amount) {
+    int giveRepurtation(Player player, Generator.Flag fraction, int amount) {
         if (config == null) load();
         ConfigurationSection section = config.getConfigurationSection(player.getUniqueId().toString());
         if (section == null) section = config.createSection(player.getUniqueId().toString());
-        int newVal = section.getInt(fraction, 0) + amount;
-        section.set(fraction, newVal);
+        int newVal = section.getInt(fraction.name(), 0) + amount;
+        section.set(fraction.name(), newVal);
         save();
         return newVal;
     }

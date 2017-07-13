@@ -13,7 +13,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.Getter;
+import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -124,7 +126,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         if (cmd == null) return null;
         if ("tp".equals(cmd) && args.length == 2) {
             String term = args[1].toLowerCase();
-            return world.getTowns().stream().filter(t -> t.name.toLowerCase().startsWith(term)).map(t -> t.name).collect(Collectors.toList());
+            return world.getTowns().stream().filter(t -> Generator.cleanSpecialChars(t.name.toLowerCase()).startsWith(term)).map(t -> t.name).collect(Collectors.toList());
         }
         return null;
     }
@@ -167,17 +169,20 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         int z = event.getBlock().getZ();
         for (RPGWorld.Town town: rpgWorld.towns) {
             if (town.area.contains(x, z)) {
-                event.getPlayer().sendMessage("Block Break in Town " + town.name);
-                int houseIndex = 0;
-                for (RPGWorld.House house: town.houses) {
-                    houseIndex += 1;
-                    if (house.boundingBox.contains(x, y, z)) {
-                        event.getPlayer().sendMessage(" and House " + houseIndex);
-                        int roomIndex = 0;
-                        for (Cuboid room: house.rooms) {
-                            roomIndex += 1;
-                            if (room.contains(x, y, z)) {
-                                event.getPlayer().sendMessage(" and Room " + roomIndex);
+                if (!town.visited) {
+                    town.visited = true;
+                    rpgWorld.dirty = true;
+                    for (RPGWorld.House house: town.houses) {
+                        Cuboid bb = house.boundingBox.grow(1);
+                        for (int az = bb.az; az <= bb.bz; az += 1) {
+                            for (int ay = bb.ay; ay <= bb.by; ay += 1) {
+                                for (int ax = bb.ax; ax <= bb.bx; ax += 1) {
+                                    Block block = rpgWorld.world.getBlockAt(ax, ay, az);
+                                    if (block.getType() == Material.AIR && block.getLightLevel() == 0) {
+                                        block.setType(Material.GLOWSTONE);
+                                        getServer().getScheduler().runTask(this, () -> block.setType(Material.AIR));
+                                    }
+                                }
                             }
                         }
                     }

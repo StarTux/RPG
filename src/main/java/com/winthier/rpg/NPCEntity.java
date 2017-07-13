@@ -62,6 +62,9 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
         }
         if (et == null) et = EntityType.VILLAGER;
         Entity e = location.getWorld().spawnEntity(location, et);
+        if (e instanceof LivingEntity) {
+            ((LivingEntity)e).setRemoveWhenFarAway(false);
+        }
         if (townId > -1 && npcId > -1) {
             e.addScoreboardTag("winthier.rpg.npc=" + townId + ":" + npcId);
         }

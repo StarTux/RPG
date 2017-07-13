@@ -38,7 +38,7 @@ final class Generator {
         final String[] vocals = {"a", "e", "i", "o", "u"};
         final String[] longVocals = {"aa", "ee", "oo"};
         final String[] diphtongs = {"au", "ei", "ou"};
-        final String[] accents = {"á", "â", "à", "é", "ê", "è", "ó", "ô", "ò", "ú", "û", "ù"};
+        final String[] accents = {"á", "à", "é", "ê", "è", "ó", "ò", "ú", "ù"};
         final String[] umlauts = {"ä", "ö", "ü"};
         final String[] endSyllable = {"b", "d", "f", "g", "k", "l", "m", "n", "p", "r", "s", "t", "v", "w", "x", "z", "st", "nd", "sd", "sh", "tsh", "sch", "ng", "nk", "rk", "lt", "ld", "rn", "rt", "rs", "ts", "mb", "rst", "tch", "ch"};
         final String[] endStrong = {"ff", "gg", "kk", "ll", "mm", "nn", "pp", "rr", "ss", "tt", "tz", "ck"};
@@ -190,17 +190,18 @@ final class Generator {
         Flag flagStyle = Flag.RANDOM;
         Flag flagDoor = Flag.RANDOM;
         Flag flagAltitude = Flag.SURFACE;
-        Flag flagNPC = Flag.RANDOM;
+        Flag flagFraction = Flag.RANDOM;
         for (Flag flag: flags) {
             if (flag.strategy == Flag.Strategy.STYLE) flagStyle = flag;
             if (flag.strategy == Flag.Strategy.DOOR) flagDoor = flag;
             if (flag.strategy == Flag.Strategy.ALTITUDE) flagAltitude = flag;
-            if (flag.strategy == Flag.Strategy.NPC) flagNPC = flag;
+            if (flag.strategy == Flag.Strategy.FRACTION) flagFraction = flag;
         }
         boolean noRoof = flags.contains(Flag.NO_ROOF) || flagAltitude == Flag.UNDERGROUND;
         boolean noBase = flags.contains(Flag.NO_BASE) || flagAltitude != Flag.SURFACE;
         boolean noDecoration = flags.contains(Flag.NO_DECORATION);
         boolean noNPCs = flags.contains(Flag.NO_NPCS);
+        if (flagFraction == Flag.RANDOM) flagFraction = Flag.VILLAGER;
         int floorLevel;
         switch (flagAltitude) {
         case UNDERGROUND:
@@ -904,12 +905,19 @@ final class Generator {
         }
         // Spawn NPCs
         if (!noNPCs) {
-            int totalNPCs = Math.max(1, random.nextInt(house.rooms.size()) - random.nextInt(house.rooms.size()));
+            int totalNPCs = 1;
+            for (int i = 0; i < house.rooms.size() - 1; i += 1) totalNPCs += random.nextInt(2);
+            System.out.println("rooms=" + house.rooms.size() + " npcs=" + totalNPCs);
             List<Vec2> possibleNPCSpots = new ArrayList<>();
-            for (Vec2 vec: tiles.keySet()) {
-                if (tiles.get(vec) == RoomTile.FLOOR) {
-                    possibleNPCSpots.add(vec);
+            for (Room room: house.rooms) {
+                List<Vec2> vecs = new ArrayList<>();
+                for (int x = room.ax + 1; x < room.bx; x += 1) {
+                    for (int y = room.ay + 1; y < room.by; y += 1) {
+                        Vec2 vec = new Vec2(x, y);
+                        if (tiles.get(vec) == RoomTile.FLOOR) vecs.add(vec);
+                    }
                 }
+                if (!vecs.isEmpty()) possibleNPCSpots.add(vecs.get(random.nextInt(vecs.size())));
             }
             Collections.shuffle(possibleNPCSpots, random);
             totalNPCs = Math.min(possibleNPCSpots.size(), totalNPCs);
@@ -921,18 +929,7 @@ final class Generator {
                 config.put("town_id", house.townId);
                 config.put("npc_id", npcId);
                 String typeString;
-                switch (flagNPC) {
-                case UNDEAD:
-                    switch (random.nextInt(4)) {
-                    case 0: typeString = "stray"; break;
-                    case 1: typeString = "husk"; break;
-                    case 2: typeString = "skeleton"; break;
-                    case 3: default: typeString = "zombie"; break;
-                    }
-                    break;
-                case VILLAGER: default: typeString = "villager";
-                }
-                config.put("type", typeString);
+                config.put("type", flagFraction.name());
                 NPCEntity.Watcher watcher = (NPCEntity.Watcher)CustomPlugin.getInstance().getEntityManager().spawnEntity(loc, NPCEntity.CUSTOM_ID, config);
                 watcher.setIds(house.townId, npcId);
                 npcId += 1;
@@ -1230,8 +1227,17 @@ final class Generator {
         NO_DECORATION(Strategy.RANDOM),
         NO_NPCS(Strategy.RANDOM),
 
-        VILLAGER(Strategy.NPC),
-        UNDEAD(Strategy.NPC),
+        VILLAGER(Strategy.FRACTION),
+        SKELETON(Strategy.FRACTION),
+        ZOMBIE(Strategy.FRACTION),
+        HUSK(Strategy.FRACTION),
+        STRAY(Strategy.FRACTION),
+        WITCH(Strategy.FRACTION),
+        CREEPER(Strategy.FRACTION),
+        ZOMBIE_VILLAGER(Strategy.FRACTION),
+        WITHER_SKELETON(Strategy.FRACTION),
+        PIG_ZOMBIE(Strategy.FRACTION),
+        ENDERMAN(Strategy.FRACTION),
 
         ACACIA_DOOR(Strategy.DOOR),
         BIRCH_DOOR(Strategy.DOOR),
@@ -1248,11 +1254,17 @@ final class Generator {
 
         RANDOM(Strategy.RANDOM);
         enum Strategy {
-            ALTITUDE, STYLE, DOOR, NPC, RANDOM;
+            ALTITUDE, STYLE, DOOR, FRACTION, RANDOM;
         }
         final Strategy strategy;
+        final boolean rare;
         Flag(Strategy strategy) {
             this.strategy = strategy;
+            this.rare = false;
+        }
+        Flag(Strategy strategy, boolean rare) {
+            this.strategy = strategy;
+            this.rare = rare;
         }
     }
 }

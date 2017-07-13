@@ -15,7 +15,8 @@ final class Messages {
     private final Map<Type, Message> messages = new HashMap<>();
 
     enum Type {
-        RANDOM;
+        RANDOM,
+        GREETING;
     }
 
     class Message {

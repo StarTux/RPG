@@ -25,14 +25,14 @@ final class Reputations {
         }
     }
 
-    int getReputation(Player player, Generator.Flag fraction) {
+    int getReputation(Player player, RPGWorld.Fraction fraction) {
         if (config == null) load();
         ConfigurationSection section = config.getConfigurationSection(player.getUniqueId().toString());
         if (section == null) return 0;
         return section.getInt(fraction.name(), 0);
     }
 
-    int giveRepurtation(Player player, Generator.Flag fraction, int amount) {
+    int giveRepurtation(Player player, RPGWorld.Fraction fraction, int amount) {
         if (config == null) load();
         ConfigurationSection section = config.getConfigurationSection(player.getUniqueId().toString());
         if (section == null) section = config.createSection(player.getUniqueId().toString());

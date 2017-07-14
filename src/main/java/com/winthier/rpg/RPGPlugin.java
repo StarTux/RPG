@@ -4,6 +4,7 @@ import com.winthier.custom.event.CustomRegisterEvent;
 import com.winthier.rpg.Generator.House;
 import com.winthier.rpg.Generator.Town;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -38,7 +39,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
     @Override
     public void onEnable() {
         getServer().getPluginManager().registerEvents(this, this);
-        getServer().getScheduler().runTaskTimer(this, () -> { if (world != null) world.onTick(); }, 1, 1);
+        getServer().getScheduler().runTaskTimer(this, () -> { if (getRPGWorld() != null) world.onTick(); }, 1, 1);
     }
 
     @Override
@@ -78,41 +79,48 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
                 player.teleport(world.getWorld().getHighestBlockAt((town.area.ax + town.area.bx) / 2, (town.area.ay + town.area.by) / 2).getLocation().add(0.5, 0, 0.5));
                 player.sendMessage("Teleported to " + town.name);
             }
-        } else if (cmd.equals("genhouse")) {
-            int size;
-            if (args.length >= 2) {
-                size = Integer.parseInt(args[1]);
-            } else {
-                size = 16;
+        } else if ("whereami".equals(cmd) && args.length == 1) {
+            if (player == null || getRPGWorld() == null) return false;
+            Block block = player.getLocation().getBlock();
+            int x = block.getX();
+            int z = block.getZ();
+            for (RPGWorld.Town town: world.towns) {
+                if (town.area.contains(x, z)) {
+                    sender.sendMessage("You are in " + town.name + ".");
+                } else if (town.questArea.contains(x, z)) {
+                    sender.sendMessage("You are in the outskirts of " + town.name + ".");
+                }
             }
+        } else if (cmd.equals("gen") && args.length >= 3) {
             Set<Generator.Flag> flags = EnumSet.noneOf(Generator.Flag.class);
-            for (int i = 2; i < args.length; i += 1) {
+            int size = Integer.parseInt(args[2]);
+            for (int i = 3; i < args.length; i += 1) {
                 flags.add(Generator.Flag.valueOf(args[i].toUpperCase()));
             }
-            House house = generator.generateHouse(size, size, flags);
-            generator.plantHouse(player.getLocation().getBlock().getRelative(-size/2, 0, -size/2), house, flags);
-            sender.sendMessage("House size " + size + " generated with " + flags);
-            Debug.printHouse(house);
-        } else if (cmd.equals("gentown")) {
-            int size;
-            if (args.length >= 2) {
-                size = Integer.parseInt(args[1]);
+            String structure = args[1];
+            generator.setFlags(flags);
+            if (structure.equals("town")) {
+                Town town = generator.tryToPlantTown(player.getLocation().getChunk(), size);
+                if (town == null) {
+                    sender.sendMessage("FAIL!");
+                    return true;
+                }
+                generator.setFlags(flags);
+                generator.plantTown(player.getWorld(), town);
+                sender.sendMessage("Success!");
+                Debug.printChunks(town.chunks);
+                for (House house: town.houses) Debug.printHouse(house);
+            } else if (structure.equals("house")) {
+                House house = generator.generateHouse(size, size);
+                generator.plantHouse(player.getLocation().getBlock().getRelative(-size / 2, 0, -size / 2), house);
+                sender.sendMessage("House size " + size + " generated with " + flags);
+                Debug.printHouse(house);
+            } else if (structure.equals("fountain")) {
+                generator.plantFountain(player.getLocation().getBlock().getRelative(-size / 2, 0, -size / 2), size);
+                sender.sendMessage("Fountain generated");
             } else {
-                size = 8;
+                sender.sendMessage("Unknown structure: '" + structure + "'");
             }
-            Set<Generator.Flag> flags = EnumSet.noneOf(Generator.Flag.class);
-            for (int i = 2; i < args.length; i += 1) {
-                flags.add(Generator.Flag.valueOf(args[i].toUpperCase()));
-            }
-            Town town = generator.tryToPlantTown(player.getLocation().getChunk(), size);
-            if (town == null) {
-                sender.sendMessage("FAIL!");
-                return true;
-            }
-            generator.plantTown(player.getWorld(), town, flags);
-            sender.sendMessage("Success!");
-            Debug.printChunks(town.chunks);
-            for (House house: town.houses) Debug.printHouse(house);
         } else {
             return false;
         }
@@ -124,7 +132,13 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         String cmd = args.length > 0 ? args[0].toLowerCase() : null;
         if (getRPGWorld() == null) return null;
         if (cmd == null) return null;
-        if ("tp".equals(cmd) && args.length == 2) {
+        if (args.length == 1) {
+            String term = args[0].toLowerCase();
+            return Arrays.asList("tp", "whereami", "gen").stream().filter(i -> i.startsWith(term)).collect(Collectors.toList());
+        } else if ("gen".equals(cmd) && args.length == 2) {
+            String term = args[1].toLowerCase();
+            return Arrays.asList("town", "house", "fountain").stream().filter(i -> i.startsWith(term)).collect(Collectors.toList());
+        } else if ("tp".equals(cmd) && args.length == 2) {
             String term = args[1].toLowerCase();
             return world.getTowns().stream().filter(t -> Generator.cleanSpecialChars(t.name.toLowerCase()).startsWith(term)).map(t -> t.name).collect(Collectors.toList());
         }

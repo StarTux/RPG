@@ -3,7 +3,9 @@ package com.winthier.rpg;
 import com.winthier.custom.CustomPlugin;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,13 +26,27 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.banner.Pattern;
 import org.bukkit.block.banner.PatternType;
+import org.bukkit.entity.EntityType;
 import org.bukkit.material.MaterialData;
 
 final class Generator {
     final Random random = new Random(System.currentTimeMillis());
-    final Set<Material> replaceMats = EnumSet.of(Material.LOG, Material.LOG_2, Material.LEAVES, Material.LEAVES_2);
+    final Set<Material> replaceMats = EnumSet.of(Material.LOG, Material.LOG_2, Material.LEAVES, Material.LEAVES_2, Material.PUMPKIN);
     final Map<Vec2, Block> highestBlocks = new HashMap<>();
     private int npcId = 0;
+    private Set<Flag> flags = EnumSet.noneOf(Flag.class);
+    private Map<Flag.Strategy, Flag> uniqueFlags = new EnumMap<>(Flag.Strategy.class);
+    private Town town;
+
+    void setFlags(Collection<Flag> newFlags) {
+        this.flags.clear();
+        this.flags.addAll(newFlags);
+        uniqueFlags.clear();
+        for (Flag.Strategy strat: Flag.Strategy.values()) uniqueFlags.put(strat, Flag.RANDOM);
+        for (Flag flag: flags) {
+            uniqueFlags.put(flag.strategy, flag);
+        }
+    }
 
     String generateTownName() {
         int syllables = 1 + random.nextInt(3);
@@ -151,6 +167,7 @@ final class Generator {
                 if (!done.contains(b)) todo.add(b);
                 if (!done.contains(c)) todo.add(c);
                 if (!done.contains(d)) todo.add(d);
+                Collections.shuffle(todo, random);
             }
         }
         if (chunks.size() < sizeInChunks) return null;
@@ -164,20 +181,30 @@ final class Generator {
             if (chunk.y < ay) ay = chunk.y;
             if (chunk.y > by) by = chunk.y;
         }
-        return new Town(ax * 16, ay * 16, bx * 16 + 15, by * 16 + 15, chunks);
+        this.town = new Town(ax * 16, ay * 16, bx * 16 + 15, by * 16 + 15, chunks);
+        return this.town;
     }
 
-    void plantTown(World world, Town town, Set<Flag> flags) {
+    void plantTown(World world, Town town) {
         Collections.shuffle(town.chunks);
+        int fountains = 1;
         for (Vec2 chunk: town.chunks) {
-            int width = 6 + random.nextInt(9);
-            int height = 6 + random.nextInt(9);
-            int offx = width < 14 ? 1 + random.nextInt(14 - width) : 1;
-            int offy = height < 14 ? 1 + random.nextInt(14 - height) : 1;
-            House house = generateHouse(width, height, flags);
-            town.houses.add(house);
-            house.townId = town.townId;
-            plantHouse(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), house, flags);
+            if (fountains > 0) {
+                fountains -= 1;
+                int size = 3 + random.nextInt(4);
+                int offx = random.nextInt(14 - size);
+                int offy = random.nextInt(14 - size);
+                plantFountain(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), size);
+            } else {
+                int width = 6 + random.nextInt(9);
+                int height = 6 + random.nextInt(9);
+                int offx = width >= 14 ? 1 : 1 + random.nextInt(14 - width);
+                int offy = height >= 14 ? 1 : 1 + random.nextInt(14 - height);
+                House house = generateHouse(width, height);
+                town.houses.add(house);
+                house.townId = town.townId;
+                plantHouse(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), house);
+            }
         }
     }
 
@@ -185,23 +212,12 @@ final class Generator {
         Block block = findHighestBlock(center);
     }
 
-    void plantHouse(Block start, House house, Set<Flag> flags) {
+    void plantHouse(Block start, House house) {
+        Flag flagAltitude = uniqueFlags.get(Flag.Strategy.ALTITUDE);
         Map<Vec2, RoomTile> tiles = house.tiles;
-        Flag flagStyle = Flag.RANDOM;
-        Flag flagDoor = Flag.RANDOM;
-        Flag flagAltitude = Flag.SURFACE;
-        Flag flagFraction = Flag.RANDOM;
-        for (Flag flag: flags) {
-            if (flag.strategy == Flag.Strategy.STYLE) flagStyle = flag;
-            if (flag.strategy == Flag.Strategy.DOOR) flagDoor = flag;
-            if (flag.strategy == Flag.Strategy.ALTITUDE) flagAltitude = flag;
-            if (flag.strategy == Flag.Strategy.FRACTION) flagFraction = flag;
-        }
         boolean noRoof = flags.contains(Flag.NO_ROOF) || flagAltitude == Flag.UNDERGROUND;
-        boolean noBase = flags.contains(Flag.NO_BASE) || flagAltitude != Flag.SURFACE;
+        boolean noBase = flags.contains(Flag.NO_BASE) || flagAltitude == Flag.FLOATING;
         boolean noDecoration = flags.contains(Flag.NO_DECORATION);
-        boolean noNPCs = flags.contains(Flag.NO_NPCS);
-        if (flagFraction == Flag.RANDOM) flagFraction = Flag.VILLAGER;
         int floorLevel;
         switch (flagAltitude) {
         case UNDERGROUND:
@@ -223,6 +239,8 @@ final class Generator {
             Collections.sort(floorLevels);
             floorLevel = floorLevels.get(floorLevels.size() / 2);
         }
+        Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
+        house.offset = offset;
         {
             int ax, az, bx, bz;
             ax = az = Integer.MAX_VALUE;
@@ -231,8 +249,8 @@ final class Generator {
             int by = floorLevel + 4;
             house.boundingBox = new Cuboid(ax, ay, az, bx, by, bz);
             for (Room room: house.rooms) {
-                Cuboid bb = new Cuboid(room.ax + start.getX(), ay, room.ay + start.getZ(),
-                                       room.bx + start.getX(), by, room.by + start.getZ());
+                Cuboid bb = new Cuboid(room.ax + offset.getX(), ay, room.ay + offset.getZ(),
+                                       room.bx + offset.getX(), by, room.by + offset.getZ());
                 room.boundingBox = bb;
                 if (ax > bb.ax) ax = bb.ax;
                 if (az > bb.az) az = bb.az;
@@ -242,6 +260,8 @@ final class Generator {
             house.boundingBox = new Cuboid(ax, ay, az, bx, by, bz);
         }
         Material matDoor;
+        Flag flagDoor = uniqueFlags.get(Flag.Strategy.DOOR);
+        Flag flagStyle = uniqueFlags.get(Flag.Strategy.STYLE);
         switch (flagDoor) {
         case RANDOM:
             switch (flagStyle) {
@@ -273,7 +293,7 @@ final class Generator {
         }
         int color = random.nextInt(16);
         for (Vec2 vec: tiles.keySet()) {
-            Block floor = start.getWorld().getBlockAt(start.getX() + vec.x, floorLevel, start.getZ() + vec.y);
+            Block floor = offset.getRelative(vec.x, 0, vec.y);
             Block[] blocks = {
                 floor, floor.getRelative(0, 1, 0), floor.getRelative(0, 2, 0), floor.getRelative(0, 3, 0), floor.getRelative(0, 4, 0)
             };
@@ -282,11 +302,11 @@ final class Generator {
             RoomTile tileSouth = tiles.get(vec.relative(0, 1));
             RoomTile tileWest = tiles.get(vec.relative(-1, 0));
             RoomTile tileNorth = tiles.get(vec.relative(0, -1));
-            boolean tileIsWall = tile != null && tile != RoomTile.FLOOR;
-            boolean eastIsWall = tileEast != null && tileEast != RoomTile.FLOOR;
-            boolean southIsWall = tileSouth != null && tileSouth != RoomTile.FLOOR;
-            boolean westIsWall = tileWest != null && tileWest != RoomTile.FLOOR;
-            boolean northIsWall = tileNorth != null && tileNorth != RoomTile.FLOOR;
+            boolean tileIsWall = tile != null && tile.isWall();
+            boolean eastIsWall = tileEast != null && tileEast.isWall();
+            boolean southIsWall = tileSouth != null && tileSouth.isWall();
+            boolean westIsWall = tileWest != null && tileWest.isWall();
+            boolean northIsWall = tileNorth != null && tileNorth.isWall();
             boolean tileIsCorner = tileIsWall && ((eastIsWall && southIsWall) || (southIsWall && westIsWall) || (westIsWall && northIsWall) || (northIsWall && eastIsWall));
             // Materials
             int dataFloor, dataCeil, dataBase;
@@ -298,9 +318,20 @@ final class Generator {
             int[] data = { 0, 0, 0, 0, 0 };
             switch (flagStyle) {
             case COBBLE:
-                mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = Material.COBBLESTONE;
-                mats[random.nextInt(mats.length)] = Material.MOSSY_COBBLESTONE;
-                matBase = Material.COBBLESTONE;
+                if (tileIsCorner) {
+                    mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = matBase = Material.LOG;
+                } else {
+                    mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = matBase = Material.COBBLESTONE;
+                    mats[random.nextInt(mats.length)] = Material.MOSSY_COBBLESTONE;
+                }
+                break;
+            case STONEBRICK:
+                if (tileIsCorner) {
+                    mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = matBase = Material.LOG;
+                } else {
+                    mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = matBase = Material.SMOOTH_BRICK;
+                    data[random.nextInt(data.length)] = random.nextInt(3);
+                }
                 matCeil = matFloor = Material.WOOD;
                 break;
             case SANDSTONE:
@@ -342,17 +373,15 @@ final class Generator {
                     dataBase = 8;
                 }
                 break;
-            case STONEBRICK:
-                matFloor = Material.WOOD;
-                matCeil = Material.WOOD;
-                mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = Material.SMOOTH_BRICK;
-                data[random.nextInt(data.length)] = random.nextInt(3);
-                matBase = Material.SMOOTH_BRICK;
-                break;
             case BRICKS:
+                if (tileIsCorner) {
+                    mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = matBase = Material.LOG;
+                    data[0] = data[1] = data[2] = data[3] = data[4] = dataBase = 1;
+                } else {
+                    mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = matBase = Material.BRICK;
+                }
                 matFloor = matCeil = Material.WOOD;
                 dataFloor = dataCeil = 1;
-                mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = matBase = Material.BRICK;
                 break;
             case KOONTZY:
                 matFloor = matCeil = Material.WOOD;
@@ -645,7 +674,7 @@ final class Generator {
                             if (nbor == RoomTile.WINDOW || nbor == RoomTile.DOOR || nbor == RoomTile.DECORATION) skip = true;
                         }
                         if (!skip) {
-                            Block floor = start.getWorld().getBlockAt(start.getX() + vec.x, floorLevel, start.getZ() + vec.y);
+                            Block floor = offset.getRelative(vec.x, 0, vec.y);
                             house.tiles.put(vec, RoomTile.DECORATION);
                             if (torches > 0) {
                                 torches -= 1;
@@ -850,7 +879,7 @@ final class Generator {
             boolean useStairs = random.nextBoolean();
             for (Vec2 vec: roofs.keySet()) {
                 int roofLevel = roofs.get(vec);
-                Block roof1 = start.getWorld().getBlockAt(start.getX() + vec.x, floorLevel + 5, start.getZ() + vec.y);
+                Block roof1 = offset.getRelative(vec.x, 5, vec.y);
                 Block roof2 = roof1.getRelative(0, useStairs ? roofLevel : roofLevel / 2, 0);
                 RoomTile tile = tiles.get(vec);
                 if (tile != null) {
@@ -903,43 +932,107 @@ final class Generator {
                 }
             }
         }
-        // Spawn NPCs
-        if (!noNPCs) {
-            int totalNPCs = 1;
-            for (int i = 0; i < house.rooms.size() - 1; i += 1) totalNPCs += random.nextInt(2);
-            System.out.println("rooms=" + house.rooms.size() + " npcs=" + totalNPCs);
-            List<Vec2> possibleNPCSpots = new ArrayList<>();
-            for (Room room: house.rooms) {
-                List<Vec2> vecs = new ArrayList<>();
-                for (int x = room.ax + 1; x < room.bx; x += 1) {
-                    for (int y = room.ay + 1; y < room.by; y += 1) {
-                        Vec2 vec = new Vec2(x, y);
-                        if (tiles.get(vec) == RoomTile.FLOOR) vecs.add(vec);
+    }
+
+    void plantFountain(Block start, int size) {
+        List<Integer> highest = new ArrayList<>();
+        Map<Vec2, Integer> tiles = new HashMap<>();
+        for (int y = 0; y < size; y += 1) {
+            for (int x = 0; x < size; x += 1) {
+                highest.add(findHighestBlock(start.getRelative(x, 0, y)).getY());
+            }
+        }
+        Collections.sort(highest);
+        int floorLevel = highest.get(highest.size() / 2);
+        Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
+        Flag flagStyle = uniqueFlags.get(Flag.Strategy.STYLE);
+        Tile corner, pillar, wall, wallTop, roof;
+        switch (flagStyle) {
+        case SANDSTONE:
+            corner = Tile.CHISELED_SANDSTONE;
+            pillar = Tile.BIRCH_FENCE;
+            wall = Tile.SANDSTONE;
+            wallTop = Tile.SMOOTH_SANDSTONE;
+            roof = Tile.SANDSTONE_SLAB;
+            break;
+        default:
+            corner = Tile.OAK_LOG;
+            pillar = Tile.COBBLESTONE_WALL;
+            wall = wallTop = Tile.COBBLESTONE;
+            roof = Tile.OAK_WOOD_SLAB;
+        }
+        for (int z = 0; z < size; z += 1) {
+            for (int x = 0; x < size; x += 1) {
+                boolean outerX, outerZ, isWall, isCorner;
+                outerX = x == 0 || x == size - 1;
+                outerZ = z == 0 || z == size - 1;
+                isCorner = outerX && outerZ;
+                isWall = !isCorner && (outerX || outerZ);
+                Block block = offset.getRelative(x, 0, z);
+                if (isCorner) {
+                    corner.setBlock(block.getRelative(0, 1, 0));
+                    pillar.setBlock(block.getRelative(0, 2, 0));
+                    pillar.setBlock(block.getRelative(0, 3, 0));
+                    roof.setBlock(block.getRelative(0, 4, 0));
+                    for (int i = 0; i < 4; i += 1) corner.setBlock(block.getRelative(0, -i, 0));
+                } else if (isWall) {
+                    wallTop.setBlock(block.getRelative(0, 1, 0));
+                    Tile.AIR.setBlock(block.getRelative(0, 2, 0));
+                    Tile.AIR.setBlock(block.getRelative(0, 3, 0));
+                    roof.setBlock(block.getRelative(0, 4, 0));
+                    for (int i = 0; i < 4; i += 1) wall.setBlock(block.getRelative(0, -i, 0));
+                } else {
+                    Tile.AIR.setBlock(block.getRelative(0, 1, 0));
+                    Tile.AIR.setBlock(block.getRelative(0, 2, 0));
+                    Tile.AIR.setBlock(block.getRelative(0, 3, 0));
+                    roof.setBlock(block.getRelative(0, 4, 0));
+                    for (int i = 0; i < 16; i += 1) {
+                        Block blockWater = block.getRelative(0, -i, 0);
+                        if (i < 2) {
+                            blockWater.setType(Material.AIR);
+                        } else {
+                            blockWater.setType(Material.STATIONARY_WATER);
+                        }
                     }
                 }
-                if (!vecs.isEmpty()) possibleNPCSpots.add(vecs.get(random.nextInt(vecs.size())));
-            }
-            Collections.shuffle(possibleNPCSpots, random);
-            totalNPCs = Math.min(possibleNPCSpots.size(), totalNPCs);
-            for (int i = 0; i < totalNPCs; i += 1) {
-                Vec2 vec = possibleNPCSpots.get(i);
-                Block block = start.getWorld().getBlockAt(start.getX() + vec.x, floorLevel + 1, start.getZ() + vec.y);
-                Location loc = block.getLocation().add(0.5, 0, 0.5);
-                Map<String, Object> config = new HashMap<>();
-                config.put("town_id", house.townId);
-                config.put("npc_id", npcId);
-                String typeString;
-                config.put("type", flagFraction.name());
-                NPCEntity.Watcher watcher = (NPCEntity.Watcher)CustomPlugin.getInstance().getEntityManager().spawnEntity(loc, NPCEntity.CUSTOM_ID, config);
-                watcher.setIds(house.townId, npcId);
-                npcId += 1;
-                house.tiles.put(vec, RoomTile.NPC);
-                house.npcs.add(new Vec3(block.getX(), block.getY(), block.getZ()));
             }
         }
     }
 
-    House generateHouse(int width, int height, Set<Flag> flags) {
+    void spawnVillagers(House house, EntityType entityType) {
+        int totalNPCs = 1;
+        for (int i = 0; i < house.rooms.size() - 1; i += 1) totalNPCs += random.nextInt(2);
+        List<Vec2> possibleNPCSpots = new ArrayList<>();
+        for (Room room: house.rooms) {
+            List<Vec2> vecs = new ArrayList<>();
+            for (int x = room.ax + 1; x < room.bx; x += 1) {
+                for (int y = room.ay + 1; y < room.by; y += 1) {
+                    Vec2 vec = new Vec2(x, y);
+                    if (house.tiles.get(vec) == RoomTile.FLOOR) vecs.add(vec);
+                }
+            }
+            if (!vecs.isEmpty()) possibleNPCSpots.add(vecs.get(random.nextInt(vecs.size())));
+        }
+        Collections.shuffle(possibleNPCSpots, random);
+        totalNPCs = Math.min(possibleNPCSpots.size(), totalNPCs);
+        for (int i = 0; i < totalNPCs; i += 1) {
+            Vec2 vec = possibleNPCSpots.get(i);
+            Block block = house.offset.getRelative(vec.x, 1, vec.y);
+            Location loc = block.getLocation().add(0.5, 0, 0.5);
+            Map<String, Object> config = new HashMap<>();
+            config.put("town_id", house.townId);
+            config.put("npc_id", npcId);
+            String typeString;
+            config.put("type", entityType.name());
+            NPCEntity.Watcher watcher = (NPCEntity.Watcher)CustomPlugin.getInstance().getEntityManager().spawnEntity(loc, NPCEntity.CUSTOM_ID, config);
+            watcher.setIds(house.townId, npcId);
+            npcId += 1;
+            house.tiles.put(vec, RoomTile.NPC);
+            house.npcs.add(new Vec3(block.getX(), block.getY(), block.getZ()));
+        }
+    }
+
+    House generateHouse(int width, int height) {
         Map<Vec2, RoomTile> tiles = new HashMap<>();
         Map<Vec2, Room> roomMap = new HashMap<>();
         Map<Room, Set<Room>> roomConnections = new HashMap<>();
@@ -1153,6 +1246,7 @@ final class Generator {
         final Map<Vec2, RoomTile> tiles;
         final Map<Vec2, Room> roomMap;
         final List<Vec3> npcs = new ArrayList<>();
+        public Block offset;
         public Cuboid boundingBox;
         int townId;
     }
@@ -1225,19 +1319,6 @@ final class Generator {
         NO_ROOF(Strategy.RANDOM),
         NO_BASE(Strategy.RANDOM),
         NO_DECORATION(Strategy.RANDOM),
-        NO_NPCS(Strategy.RANDOM),
-
-        VILLAGER(Strategy.FRACTION),
-        SKELETON(Strategy.FRACTION),
-        ZOMBIE(Strategy.FRACTION),
-        HUSK(Strategy.FRACTION),
-        STRAY(Strategy.FRACTION),
-        WITCH(Strategy.FRACTION),
-        CREEPER(Strategy.FRACTION),
-        ZOMBIE_VILLAGER(Strategy.FRACTION),
-        WITHER_SKELETON(Strategy.FRACTION),
-        PIG_ZOMBIE(Strategy.FRACTION),
-        ENDERMAN(Strategy.FRACTION),
 
         ACACIA_DOOR(Strategy.DOOR),
         BIRCH_DOOR(Strategy.DOOR),
@@ -1254,7 +1335,7 @@ final class Generator {
 
         RANDOM(Strategy.RANDOM);
         enum Strategy {
-            ALTITUDE, STYLE, DOOR, FRACTION, RANDOM;
+            ALTITUDE, STYLE, DOOR, RANDOM;
         }
         final Strategy strategy;
         final boolean rare;

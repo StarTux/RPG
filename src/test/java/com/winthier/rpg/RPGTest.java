@@ -15,7 +15,7 @@ public final class RPGTest {
     public void main() {
         Generator generator = new Generator();
         for (int i = 0; i < 8; i += 1) {
-            House house = generator.generateHouse(16, 16, EnumSet.noneOf(Generator.Flag.class));
+            House house = generator.generateHouse(16, 16);
             Debug.printHouse(house);
         }
         for (int i = 0; i < 40; i += 1) {

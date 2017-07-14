@@ -22,6 +22,7 @@ import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
 @Getter
@@ -94,12 +95,12 @@ final class RPGWorld {
         final List<String> tags = new ArrayList<>();
         final List<House> houses = new ArrayList<>();
         final String name;
-        Generator.Flag fraction = Generator.Flag.VILLAGER;
+        Fraction fraction = Fraction.VILLAGER;
         boolean visited = false;
 
         Town(Rectangle area, String name) {
             this.area = area;
-            this.questArea = area.grow(128);
+            this.questArea = area.grow(64);
             this.name = name;
         }
 
@@ -117,10 +118,10 @@ final class RPGWorld {
                 this.houses.add(new House(section));
             }
             this.area = new Rectangle(config.getIntegerList("area"));
-            this.questArea = area.grow(128);
+            this.questArea = area.grow(64);
             this.name = config.getString("name");
             try {
-                this.fraction = Generator.Flag.valueOf(config.getString("fraction", "VILLAGER").toUpperCase());
+                this.fraction = Fraction.valueOf(config.getString("fraction", "VILLAGER").toUpperCase());
             } catch (IllegalArgumentException iae) {
                 iae.printStackTrace();
             }
@@ -257,13 +258,13 @@ final class RPGWorld {
 
     boolean tryToAddTown() {
         Generator generator = new Generator();
-        int size = 8 + generator.random.nextInt(12);
+        int size = 8 + generator.random.nextInt(8);
         Generator.Town gt = generator.tryToPlantTown(world, size);
         if (gt == null) {
             return false;
         }
         Rectangle area = new Rectangle(gt.ax, gt.ay, gt.bx, gt.by);
-        Rectangle questArea = area.grow(128);
+        Rectangle questArea = area.grow(64);
         for (Town town: towns) {
             if (town.questArea.intersects(questArea)) {
                 return false;
@@ -275,28 +276,28 @@ final class RPGWorld {
         }
         Set<Generator.Flag> flags = EnumSet.noneOf(Generator.Flag.class);
         List<Generator.Flag> styleFlags = new ArrayList<>();
-        List<Generator.Flag> fractionFlags = new ArrayList<>();
         for (Generator.Flag flag: Generator.Flag.values()) {
             if (flag.strategy == Generator.Flag.Strategy.STYLE) styleFlags.add(flag);
-            if (flag.strategy == Generator.Flag.Strategy.FRACTION) fractionFlags.add(flag);
         }
         Generator.Flag flagStyle = styleFlags.get(generator.random.nextInt(styleFlags.size()));
-        Generator.Flag flagFraction = fractionFlags.get(generator.random.nextInt(fractionFlags.size()));
         flags.add(flagStyle);
-        flags.add(flagFraction);
         flags.add(Generator.Flag.SURFACE);
         gt.townId = towns.size();
         final String doTileDrops = "doTileDrops";
         String oldGameRuleValue = world.getGameRuleValue(doTileDrops);
         world.setGameRuleValue(doTileDrops, "false");
-        generator.plantTown(world, gt, flags);
+        generator.setFlags(flags);
+        generator.plantTown(world, gt);
+        Fraction fraction = Fraction.values()[generator.random.nextInt(Fraction.values().length)];
+        for (Generator.House gh: gt.houses) {
+            generator.spawnVillagers(gh, fraction.entityType);
+        }
         world.setGameRuleValue(doTileDrops, oldGameRuleValue);
         Town town = new Town(area, generator.generateTownName());
         town.tags.addAll(flags.stream().map(f -> f.name().toLowerCase()).collect(Collectors.toList()));
         for (Generator.House gh: gt.houses) {
             town.houses.add(new House(gh.boundingBox, gh.rooms.stream().map(r -> r.boundingBox).collect(Collectors.toList())));
         }
-        town.fraction = flagFraction;
         // Quests
         int totalQuests = Math.min(town.npcs.size(), 3 + generator.random.nextInt(3));
         for (int i = 0; i < totalQuests; i += 1) {
@@ -420,5 +421,26 @@ final class RPGWorld {
         //         return quest.getQuestDescription();
         //     }
         // }
+    }
+
+    enum Fraction {
+        VILLAGER(EntityType.VILLAGER),
+        SKELETON(EntityType.SKELETON),
+        ZOMBIE(EntityType.ZOMBIE),
+        HUSK(EntityType.HUSK),
+        STRAY(EntityType.STRAY),
+        WITCH(EntityType.WITCH),
+        CREEPER(EntityType.CREEPER),
+        ZOMBIE_VILLAGER(EntityType.VILLAGER),
+        WITHER_SKELETON(EntityType.SKELETON),
+        PIG_ZOMBIE(EntityType.ZOMBIE),
+        ENDERMAN(EntityType.ENDERMAN),
+        BLAZE(EntityType.BLAZE);
+
+        public final EntityType entityType;
+
+        Fraction(EntityType entityType) {
+            this.entityType = entityType;
+        }
     }
 }

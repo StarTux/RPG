@@ -36,40 +36,28 @@ final class Tile {
         return of(mat, 0);
     }
 
-    boolean isSideways() {
+    Tile orient(Orientation orient) {
         switch (mat) {
         case LOG:
         case LOG_2:
         case PURPUR_PILLAR:
-            return (data & 12) == 4 || (data & 12) == 8;
-        case QUARTZ_BLOCK:
-            return data == 3 || data == 4;
-        default:
-            return false;
-        }
-    }
-
-    Tile facingEastWest() {
-        switch (mat) {
-        case LOG:
-        case LOG_2:
-        case PURPUR_PILLAR:
-            return of(mat, (data & ~8) | 4);
-        case QUARTZ_BLOCK:
-            return of(mat, 3);
-        default:
+            if ((data & 12) == 4 || (data & 12) == 8) {
+                if (orient == Orientation.HORIZONTAL) {
+                    return of(mat, (data & ~8) | 4);
+                } else {
+                    return of(mat, (data & ~4) | 8);
+                }
+            }
             return this;
-        }
-    }
-
-    Tile facingNorthSouth() {
-        switch (mat) {
-        case LOG:
-        case LOG_2:
-        case PURPUR_PILLAR:
-            return of(mat, (data & ~4) | 8);
         case QUARTZ_BLOCK:
-            return of(mat, 4);
+            if (data == 3 || data == 4) {
+                if (orient == Orientation.HORIZONTAL) {
+                    return of(mat, 3);
+                } else {
+                    return of(mat, 4);
+                }
+            }
+            return this;
         default:
             return this;
         }

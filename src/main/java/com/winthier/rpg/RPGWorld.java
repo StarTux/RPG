@@ -480,7 +480,7 @@ final class RPGWorld {
                 }
                 if (result == null) break;
             }
-        } while (result != null);
+        } while (result == null);
         return result;
     }
 }

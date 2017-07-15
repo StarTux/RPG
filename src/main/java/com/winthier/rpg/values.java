@@ -90,3 +90,23 @@ final class Rectangle {
         return new Rectangle(ax - size, ay - size, bx + size, by + size);
     }
 }
+
+enum Orientation {
+    HORIZONTAL,
+    VERTICAL;
+}
+
+enum Facing {
+    NORTH(4, 2, 2),
+    SOUTH(3, 3, 3),
+    WEST(2, 4, 0),
+    EAST(1, 5, 1);
+    public final int dataTorch;
+    public final int dataBlock;
+    public final int dataStair;
+    Facing(int dataTorch, int dataBlock, int dataStair) {
+        this.dataTorch = dataTorch;
+        this.dataBlock = dataBlock;
+        this.dataStair = dataStair;
+    }
+}

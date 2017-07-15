@@ -198,8 +198,8 @@ final class Generator {
                 int offy = random.nextInt(14 - size);
                 plantFountain(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), size);
             } else {
-                int width = 6 + random.nextInt(9);
-                int height = 6 + random.nextInt(9);
+                int width = 4 + random.nextInt(11);
+                int height = 4 + random.nextInt(11);
                 int offx = width >= 14 ? 1 : 1 + random.nextInt(14 - width);
                 int offy = height >= 14 ? 1 : 1 + random.nextInt(14 - height);
                 House house = generateHouse(width, height);
@@ -310,6 +310,7 @@ final class Generator {
             boolean westIsWall = tileWest != null && tileWest.isWall();
             boolean northIsWall = tileNorth != null && tileNorth.isWall();
             boolean tileIsCorner = tileIsWall && ((eastIsWall && southIsWall) || (southIsWall && westIsWall) || (westIsWall && northIsWall) || (northIsWall && eastIsWall));
+            Orientation ori = eastIsWall || westIsWall ? Orientation.HORIZONTAL : Orientation.VERTICAL;
             // Make a base
             if (!noBase) {
                 Block block = floor.getRelative(0, -1, 0);
@@ -371,15 +372,7 @@ final class Generator {
                 for (int i = 0; i <= roomHeight; i += 1) {
                     if (i == 0) {
                         if (style.baseLevel == 0) {
-                            if (style.wallBase.isSideways()) {
-                                if (eastIsWall || westIsWall) {
-                                    style.wallBase.facingEastWest().setBlock(floor.getRelative(0, i, 0));
-                                } else {
-                                    style.wallBase.facingNorthSouth().setBlock(floor.getRelative(0, i, 0));
-                                }
-                            } else {
-                                style.wallBase.setBlock(floor.getRelative(0, i, 0));
-                            }
+                            style.wallBase.orient(ori).setBlock(floor.getRelative(0, i, 0));
                         } else {
                             style.foundation.setBlock(floor.getRelative(0, i, 0));
                         }
@@ -388,15 +381,7 @@ final class Generator {
                     } else if (i == 2) {
                         floor.getRelative(0, i, 0).setTypeIdAndData(matDoor.getId(), (byte)0x8, false);
                     } else if (i == roomHeight) {
-                        if (style.wallTop.isSideways()) {
-                            if (eastIsWall || westIsWall) {
-                                style.wallTop.facingEastWest().setBlock(floor.getRelative(0, i, 0));
-                            } else {
-                                style.wallTop.facingNorthSouth().setBlock(floor.getRelative(0, i, 0));
-                            }
-                        } else {
-                            style.wallTop.setBlock(floor.getRelative(0, i, 0));
-                        }
+                        style.wallTop.orient(ori).setBlock(floor.getRelative(0, i, 0));
                     } else if (randomWalls.contains(i)) {
                         style.wallRandom.setBlock(floor.getRelative(0, i, 0));
                     } else {
@@ -407,29 +392,13 @@ final class Generator {
             case WINDOW:
                 for (int i = 0; i <= roomHeight; i += 1) {
                     if (i == style.baseLevel) {
-                        if (style.wallBase.isSideways()) {
-                            if (eastIsWall || westIsWall) {
-                                style.wallBase.facingEastWest().setBlock(floor.getRelative(0, i, 0));
-                            } else {
-                                style.wallBase.facingNorthSouth().setBlock(floor.getRelative(0, i, 0));
-                            }
-                        } else {
-                            style.wallBase.setBlock(floor.getRelative(0, i, 0));
-                        }
+                        style.wallBase.orient(ori).setBlock(floor.getRelative(0, i, 0));
                     } else if (i == 0) {
                         style.foundation.setBlock(floor.getRelative(0, i, 0));
                     } else if (i >= 2 && i < 2 + windowHeight) {
                         Tile.GLASS_PANE.setBlock(floor.getRelative(0, i, 0));
                     } else if (i == roomHeight) {
-                        if (style.wallTop.isSideways()) {
-                            if (eastIsWall || westIsWall) {
-                                style.wallTop.facingEastWest().setBlock(floor.getRelative(0, i, 0));
-                            } else {
-                                style.wallTop.facingNorthSouth().setBlock(floor.getRelative(0, i, 0));
-                            }
-                        } else {
-                            style.wallTop.setBlock(floor.getRelative(0, i, 0));
-                        }
+                        style.wallTop.orient(ori).setBlock(floor.getRelative(0, i, 0));
                     } else if (randomWalls.contains(i)) {
                         style.wallRandom.setBlock(floor.getRelative(0, i, 0));
                     } else {
@@ -451,37 +420,13 @@ final class Generator {
                     }
                 } else {
                     for (int i = 0; i <= roomHeight; i += 1) {
-                        if (style.wallTop.isSideways()) {
-                            if (eastIsWall || westIsWall) {
-                                style.wallTop.facingEastWest().setBlock(floor.getRelative(0, i, 0));
-                            } else {
-                                style.wallTop.facingNorthSouth().setBlock(floor.getRelative(0, i, 0));
-                            }
-                        } else {
-                            style.wallTop.setBlock(floor.getRelative(0, i, 0));
-                        }
+                        style.wallTop.orient(ori).setBlock(floor.getRelative(0, i, 0));
                         if (i == style.baseLevel) {
-                            if (style.wallBase.isSideways()) {
-                                if (eastIsWall || westIsWall) {
-                                    style.wallBase.facingEastWest().setBlock(floor.getRelative(0, i, 0));
-                                } else {
-                                    style.wallBase.facingNorthSouth().setBlock(floor.getRelative(0, i, 0));
-                                }
-                            } else {
-                                style.wallBase.setBlock(floor.getRelative(0, i, 0));
-                            }
+                            style.wallBase.orient(ori).setBlock(floor.getRelative(0, i, 0));
                         } else if (i == 0) {
                             style.foundation.setBlock(floor.getRelative(0, i, 0));
                         } else if (i == roomHeight) {
-                            if (style.wallTop.isSideways()) {
-                                if (eastIsWall || westIsWall) {
-                                    style.wallTop.facingEastWest().setBlock(floor.getRelative(0, i, 0));
-                                } else {
-                                    style.wallTop.facingNorthSouth().setBlock(floor.getRelative(0, i, 0));
-                                }
-                            } else {
-                                style.wallTop.setBlock(floor.getRelative(0, i, 0));
-                            }
+                            style.wallTop.orient(ori).setBlock(floor.getRelative(0, i, 0));
                         } else if (randomWalls.contains(i)) {
                             style.wallRandom.setBlock(floor.getRelative(0, i, 0));
                         } else {
@@ -764,47 +709,44 @@ final class Generator {
         Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
         Flag flagStyle = uniqueFlags.get(Flag.Strategy.STYLE);
         Style style = new Style(flagStyle, 0);
+        int height = 4 + random.nextInt(3);
         for (int z = 0; z < size; z += 1) {
             for (int x = 0; x < size; x += 1) {
                 boolean outerX, outerZ, isWall, isCorner;
                 outerX = x == 0 || x == size - 1;
                 outerZ = z == 0 || z == size - 1;
                 isCorner = outerX && outerZ;
+                Orientation ori = outerX ? Orientation.VERTICAL : Orientation.HORIZONTAL;
                 isWall = !isCorner && (outerX || outerZ);
                 Block block = offset.getRelative(x, 0, z);
                 if (isCorner) {
-                    if (style.cornerTop.isSideways()) {
-                        if (outerX) {
-                            style.cornerTop.facingNorthSouth().setBlock(block.getRelative(0, 1, 0));
+                    style.cornerTop.orient(ori).setBlock(block.getRelative(0, 1, 0));
+                    for (int i = 2; i <= height; i += 1) {
+                        if (i < height) {
+                            style.pillar.setBlock(block.getRelative(0, i, 0));
                         } else {
-                            style.cornerTop.facingEastWest().setBlock(block.getRelative(0, 1, 0));
+                            style.roofSlab.setBlock(block.getRelative(0, i, 0));
                         }
-                    } else {
-                        style.cornerTop.setBlock(block.getRelative(0, 1, 0));
                     }
-                    style.pillar.setBlock(block.getRelative(0, 2, 0));
-                    style.pillar.setBlock(block.getRelative(0, 3, 0));
-                    style.roofSlab.setBlock(block.getRelative(0, 4, 0));
                     for (int i = 0; i < 4; i += 1) style.corner.setBlock(block.getRelative(0, -i, 0));
                 } else if (isWall) {
-                    if (style.wallTop.isSideways()) {
-                        if (outerX) {
-                            style.wallTop.facingNorthSouth().setBlock(block.getRelative(0, 1, 0));
+                    style.wallTop.orient(ori).setBlock(block.getRelative(0, 1, 0));
+                    for (int i = 2; i <= height; i += 1) {
+                        if (i < height) {
+                            Tile.AIR.setBlock(block.getRelative(0, i, 0));
                         } else {
-                            style.wallTop.facingEastWest().setBlock(block.getRelative(0, 1, 0));
+                            style.roofSlab.setBlock(block.getRelative(0, i, 0));
                         }
-                    } else {
-                        style.wallTop.setBlock(block.getRelative(0, 1, 0));
                     }
-                    Tile.AIR.setBlock(block.getRelative(0, 2, 0));
-                    Tile.AIR.setBlock(block.getRelative(0, 3, 0));
-                    style.roofSlab.setBlock(block.getRelative(0, 4, 0));
                     for (int i = 0; i < 4; i += 1) style.wall.setBlock(block.getRelative(0, -i, 0));
                 } else {
-                    Tile.AIR.setBlock(block.getRelative(0, 1, 0));
-                    Tile.AIR.setBlock(block.getRelative(0, 2, 0));
-                    Tile.AIR.setBlock(block.getRelative(0, 3, 0));
-                    style.roofSlab.setBlock(block.getRelative(0, 4, 0));
+                    for (int i = 2; i <= height; i += 1) {
+                        if (i < height) {
+                            Tile.AIR.setBlock(block.getRelative(0, i, 0));
+                        } else {
+                            style.roofSlab.setBlock(block.getRelative(0, i, 0));
+                        }
+                    }
                     for (int i = 0; i < 16; i += 1) {
                         Block blockWater = block.getRelative(0, -i, 0);
                         if (i < 2) {
@@ -815,6 +757,11 @@ final class Generator {
                     }
                 }
             }
+        }
+        if (town != null) {
+            Cuboid bb = new Cuboid(offset.getX(), offset.getY() - 16, offset.getZ(),
+                                   offset.getX() + size, offset.getY() + height, offset.getZ() + size);
+            town.structures.add(new Structure("fountain", bb, Arrays.asList(bb)));
         }
     }
 
@@ -1042,7 +989,15 @@ final class Generator {
         final int ax, ay, bx, by;
         final List<Vec2> chunks;
         final List<House> houses = new ArrayList<>();
+        final List<Structure> structures = new ArrayList<>();
         int townId;
+    }
+
+    @RequiredArgsConstructor
+    static final class Structure {
+        final String name;
+        final Cuboid boundingBox;
+        final List<Cuboid> boundingBoxes;
     }
 
     enum RoomTile {
@@ -1056,26 +1011,6 @@ final class Generator {
             case WALL: case DOOR: case WINDOW: return true;
             default: return false;
             }
-        }
-    }
-
-    enum Orientation {
-        HORIZONTAL,
-        VERTICAL;
-    }
-
-    enum Facing {
-        NORTH(4, 2, 2),
-        SOUTH(3, 3, 3),
-        WEST(2, 4, 0),
-        EAST(1, 5, 1);
-        public final int dataTorch;
-        public final int dataBlock;
-        public final int dataStair;
-        Facing(int dataTorch, int dataBlock, int dataStair) {
-            this.dataTorch = dataTorch;
-            this.dataBlock = dataBlock;
-            this.dataStair = dataStair;
         }
     }
 
@@ -1206,7 +1141,7 @@ final class Generator {
                 break;
             case BRICKS:
                 wall = wallRandom = foundation = Tile.BRICKS;
-                wallTop = Tile.SPRUCE_LOG.facingEastWest();
+                wallTop = Tile.SPRUCE_LOG.or(4);
                 wallBase = Tile.STONE_BRICKS;
                 corner = cornerBase = cornerTop = Tile.SPRUCE_LOG;
                 roofStair = Tile.SPRUCE_WOOD_STAIRS;
@@ -1220,7 +1155,7 @@ final class Generator {
             case KOONTZY:
                 wall = wallBase = foundation = Tile.BRICKS;
                 wallRandom = Tile.TERRACOTTA.or(color);
-                wallTop = Tile.SPRUCE_LOG.facingEastWest();
+                wallTop = Tile.SPRUCE_LOG.or(4);
                 corner = cornerBase = cornerTop = Tile.SPRUCE_LOG;
                 roofStair = Tile.SPRUCE_WOOD_STAIRS;
                 roofSlab = Tile.SPRUCE_WOOD_SLAB;
@@ -1232,7 +1167,7 @@ final class Generator {
                 break;
             case OAK:
                 wall = wallRandom = foundation = Tile.OAK_PLANKS;
-                wallTop = Tile.OAK_LOG.facingEastWest();
+                wallTop = Tile.OAK_LOG.or(4);
                 wallBase = Tile.STONE_BRICKS;
                 corner = cornerBase = Tile.OAK_LOG;
                 cornerTop = Tile.CHISELED_STONE_BRICKS;
@@ -1246,7 +1181,7 @@ final class Generator {
                 break;
             case SPRUCE:
                 wall = wallRandom = foundation = Tile.SPRUCE_PLANKS;
-                wallTop = Tile.SPRUCE_LOG.facingEastWest();
+                wallTop = Tile.SPRUCE_LOG.or(4);
                 wallBase = Tile.STONE_BRICKS;
                 corner = cornerBase = Tile.SPRUCE_LOG;
                 cornerTop = Tile.CHISELED_STONE_BRICKS;
@@ -1260,7 +1195,7 @@ final class Generator {
                 break;
             case BIRCH:
                 wall = wallRandom = foundation = Tile.BIRCH_PLANKS;
-                wallTop = Tile.BIRCH_LOG.facingEastWest();
+                wallTop = Tile.BIRCH_LOG.or(4);
                 wallBase = Tile.STONE_BRICKS;
                 corner = cornerBase = Tile.BIRCH_LOG;
                 cornerTop = Tile.CHISELED_STONE_BRICKS;
@@ -1274,7 +1209,7 @@ final class Generator {
                 break;
             case JUNGLE:
                 wall = wallRandom = foundation = Tile.JUNGLE_PLANKS;
-                wallTop = Tile.JUNGLE_LOG.facingEastWest();
+                wallTop = Tile.JUNGLE_LOG.or(4);
                 wallBase = Tile.STONE_BRICKS;
                 corner = cornerBase = Tile.JUNGLE_LOG;
                 cornerTop = Tile.CHISELED_STONE_BRICKS;
@@ -1288,7 +1223,7 @@ final class Generator {
                 break;
             case ACACIA:
                 wall = wallRandom = foundation = Tile.ACACIA_PLANKS;
-                wallTop = Tile.ACACIA_LOG.facingEastWest();
+                wallTop = Tile.ACACIA_LOG.or(4);
                 wallBase = Tile.STONE_BRICKS;
                 corner = cornerBase = Tile.ACACIA_LOG;
                 cornerTop = Tile.CHISELED_STONE_BRICKS;
@@ -1302,7 +1237,7 @@ final class Generator {
                 break;
             case DARK_OAK:
                 wall = wallRandom = foundation = Tile.DARK_OAK_PLANKS;
-                wallTop = Tile.DARK_OAK_LOG.facingEastWest();
+                wallTop = Tile.DARK_OAK_LOG.or(4);
                 wallBase = Tile.STONE_BRICKS;
                 corner = cornerBase = Tile.DARK_OAK_LOG;
                 cornerTop = Tile.CHISELED_STONE_BRICKS;
@@ -1330,7 +1265,7 @@ final class Generator {
             case TERRACOTTA:
                 wall = wallRandom = foundation = Tile.TERRACOTTA.or(color);
                 wallBase = Tile.STONE_BRICKS;
-                wallTop = Tile.SPRUCE_LOG.facingEastWest();
+                wallTop = Tile.SPRUCE_LOG.or(4);
                 corner = cornerBase = Tile.STONE_BRICKS;
                 cornerTop = Tile.CHISELED_STONE_BRICKS;
                 floor = ceiling = Tile.SPRUCE_PLANKS;
@@ -1392,7 +1327,7 @@ final class Generator {
             case PURPUR:
                 wall = wallRandom = foundation = Tile.END_STONE_BRICKS;
                 wallBase = Tile.PURPUR_BLOCK;
-                wallTop = Tile.PURPUR_PILLAR.facingEastWest();
+                wallTop = Tile.PURPUR_PILLAR.or(4);
                 corner = Tile.PURPUR_PILLAR;
                 cornerBase = cornerTop = Tile.PURPUR_BLOCK;
                 floor = ceiling = Tile.PURPUR_BLOCK;
@@ -1419,8 +1354,8 @@ final class Generator {
             case COBBLE:
             default:
                 wall = Tile.COBBLESTONE;
-                wallBase = Tile.OAK_LOG.facingEastWest();
-                wallTop = Tile.OAK_LOG.facingEastWest();
+                wallBase = Tile.OAK_LOG.or(4);
+                wallTop = Tile.OAK_LOG.or(4);
                 wallRandom = Tile.MOSSY_COBBLESTONE;
                 corner = Tile.OAK_LOG;
                 cornerBase = cornerTop = Tile.CHISELED_STONE_BRICKS;

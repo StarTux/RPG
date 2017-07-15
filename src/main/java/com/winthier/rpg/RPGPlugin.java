@@ -138,6 +138,9 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         } else if ("gen".equals(cmd) && args.length == 2) {
             String term = args[1].toLowerCase();
             return Arrays.asList("town", "house", "fountain").stream().filter(i -> i.startsWith(term)).collect(Collectors.toList());
+        } else if ("gen".equals(cmd) && args.length >= 4) {
+            String term = args[args.length - 1].toLowerCase();
+            return Arrays.asList(Generator.Flag.values()).stream().filter(f -> f.name().toLowerCase().startsWith(term)).map(f -> f.name()).collect(Collectors.toList());
         } else if ("tp".equals(cmd) && args.length == 2) {
             String term = args[1].toLowerCase();
             return world.getTowns().stream().filter(t -> Generator.cleanSpecialChars(t.name.toLowerCase()).startsWith(term)).map(t -> t.name).collect(Collectors.toList());

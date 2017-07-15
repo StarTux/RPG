@@ -28,7 +28,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 @Getter
 public final class RPGPlugin extends JavaPlugin implements Listener {
-    Generator generator = new Generator();
     private final Random random = new Random();
     String worldName = "";
     RPGWorld world = null;
@@ -92,6 +91,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
                 }
             }
         } else if (cmd.equals("gen") && args.length >= 3) {
+            Generator generator = new Generator();
             Set<Generator.Flag> flags = EnumSet.noneOf(Generator.Flag.class);
             int size = Integer.parseInt(args[2]);
             for (int i = 3; i < args.length; i += 1) {

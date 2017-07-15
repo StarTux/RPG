@@ -1,5 +1,6 @@
 package com.winthier.rpg;
 
+import com.winthier.custom.CustomPlugin;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -22,7 +23,7 @@ import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.EntityType;
-import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 
 @Getter
@@ -95,13 +96,14 @@ final class RPGWorld {
         final List<String> tags = new ArrayList<>();
         final List<House> houses = new ArrayList<>();
         final String name;
-        Fraction fraction = Fraction.VILLAGER;
+        final Fraction fraction;
         boolean visited = false;
 
-        Town(Rectangle area, String name) {
+        Town(Rectangle area, String name, Fraction fraction) {
             this.area = area;
             this.questArea = area.grow(64);
             this.name = name;
+            this.fraction = fraction;
         }
 
         Town(ConfigurationSection config) {
@@ -120,11 +122,14 @@ final class RPGWorld {
             this.area = new Rectangle(config.getIntegerList("area"));
             this.questArea = area.grow(64);
             this.name = config.getString("name");
+            Fraction fraction;
             try {
-                this.fraction = Fraction.valueOf(config.getString("fraction", "VILLAGER").toUpperCase());
+                fraction = Fraction.valueOf(config.getString("fraction", "VILLAGER").toUpperCase());
             } catch (IllegalArgumentException iae) {
+                fraction = Fraction.VILLAGER;
                 iae.printStackTrace();
             }
+            this.fraction = fraction;
             this.tags.addAll(config.getStringList("tags"));
             this.visited = config.getBoolean("visited");
         }
@@ -277,7 +282,7 @@ final class RPGWorld {
         Set<Generator.Flag> flags = EnumSet.noneOf(Generator.Flag.class);
         List<Generator.Flag> styleFlags = new ArrayList<>();
         for (Generator.Flag flag: Generator.Flag.values()) {
-            if (flag.strategy == Generator.Flag.Strategy.STYLE) styleFlags.add(flag);
+            if (flag.strategy == Generator.Flag.Strategy.STYLE && !flag.rare) styleFlags.add(flag);
         }
         Generator.Flag flagStyle = styleFlags.get(generator.random.nextInt(styleFlags.size()));
         flags.add(flagStyle);
@@ -287,13 +292,18 @@ final class RPGWorld {
         String oldGameRuleValue = world.getGameRuleValue(doTileDrops);
         world.setGameRuleValue(doTileDrops, "false");
         generator.setFlags(flags);
-        generator.plantTown(world, gt);
-        Fraction fraction = Fraction.values()[generator.random.nextInt(Fraction.values().length)];
-        for (Generator.House gh: gt.houses) {
-            generator.spawnVillagers(gh, fraction.entityType);
+        try {
+            generator.plantTown(world, gt);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         world.setGameRuleValue(doTileDrops, oldGameRuleValue);
-        Town town = new Town(area, generator.generateTownName());
+        List<Fraction> fractions = new ArrayList<>();
+        for (Fraction fraction: Fraction.values()) if (!fraction.rare) fractions.add(fraction);
+        Fraction fraction = fractions.get(generator.random.nextInt(fractions.size()));
+        int townId = towns.size();
+        String townName = generateUniqueName(generator, 1 + generator.random.nextInt(2));
+        Town town = new Town(area, townName, fraction);
         town.tags.addAll(flags.stream().map(f -> f.name().toLowerCase()).collect(Collectors.toList()));
         for (Generator.House gh: gt.houses) {
             town.houses.add(new House(gh.boundingBox, gh.rooms.stream().map(r -> r.boundingBox).collect(Collectors.toList())));
@@ -348,8 +358,9 @@ final class RPGWorld {
         int npc_quests = town.quests.size();
         for (Generator.House house: gt.houses) {
             for (Vec3 vec: house.npcs) {
-                NPC npc = new NPC(new Vec3(vec.x, vec.y, vec.z));
-                npc.name = generator.generateTownName();
+                int npcId = town.npcs.size();
+                NPC npc = new NPC(vec);
+                npc.name = generateUniqueName(generator, 1 + generator.random.nextInt(2));
                 String message;
                 if (npc_quests > 0) {
                     npc_quests -= 1;
@@ -365,12 +376,20 @@ final class RPGWorld {
                 message = message.replace("%npc_name%", npc.name);
                 npc.message = message;
                 town.npcs.add(npc);
+                EntityType et = fraction.villagerTypes.get(generator.random.nextInt(fraction.villagerTypes.size()));
+                Location loc = world.getBlockAt(vec.x, vec.y, vec.z).getLocation().add(0.5, 0.0, 0.5);
+                LivingEntity living = (LivingEntity)world.spawnEntity(loc, et);
+                living.setAI(false);
+                living.setRemoveWhenFarAway(false);
+                NPCEntity.Watcher watcher = (NPCEntity.Watcher)CustomPlugin.getInstance().getEntityManager().wrapEntity(living, NPCEntity.CUSTOM_ID);
+                watcher.setIds(townId, npcId);
+                watcher.save();
             }
         }
         Collections.shuffle(town.npcs, generator.random);
         towns.add(town);
         save();
-        plugin.getLogger().info("Town " + town.name + " created at " + gt.ax + " " + gt.ay);
+        plugin.getLogger().info("Town " + town.name + "(" + flagStyle.name().toLowerCase() + "," + fraction.name().toLowerCase() + ") created at " + gt.ax + " " + gt.ay);
         return true;
     }
 
@@ -424,23 +443,44 @@ final class RPGWorld {
     }
 
     enum Fraction {
-        VILLAGER(EntityType.VILLAGER),
-        SKELETON(EntityType.SKELETON),
-        ZOMBIE(EntityType.ZOMBIE),
-        HUSK(EntityType.HUSK),
-        STRAY(EntityType.STRAY),
-        WITCH(EntityType.WITCH),
-        CREEPER(EntityType.CREEPER),
-        ZOMBIE_VILLAGER(EntityType.VILLAGER),
-        WITHER_SKELETON(EntityType.SKELETON),
-        PIG_ZOMBIE(EntityType.ZOMBIE),
-        ENDERMAN(EntityType.ENDERMAN),
-        BLAZE(EntityType.BLAZE);
+        VILLAGER(false, Arrays.asList(EntityType.VILLAGER)),
+        ZOMBIE_VILLAGER(false, Arrays.asList(EntityType.ZOMBIE_VILLAGER)),
+        SKELETON(false, Arrays.asList(EntityType.SKELETON, EntityType.STRAY, EntityType.WITHER_SKELETON)),
+        ZOMBIE(false, Arrays.asList(EntityType.ZOMBIE, EntityType.HUSK, EntityType.ZOMBIE_VILLAGER)),
+        PIG_ZOMBIE(false, Arrays.asList(EntityType.ZOMBIE)),
+        DARK_MAGIC(false, Arrays.asList(EntityType.WITCH, EntityType.EVOKER, EntityType.VINDICATOR)),
 
-        public final EntityType entityType;
+        ENDERMAN(true, Arrays.asList(EntityType.ENDERMAN)),
+        CREEPER(true, Arrays.asList(EntityType.CREEPER)),
+        BLAZE(true, Arrays.asList(EntityType.BLAZE));
 
-        Fraction(EntityType entityType) {
-            this.entityType = entityType;
+        public final boolean rare;
+        public final List<EntityType> villagerTypes;
+
+        Fraction(boolean rare, List<EntityType> villagerTypes) {
+            this.rare = rare;
+            this.villagerTypes = villagerTypes;
         }
+    }
+
+    String generateUniqueName(Generator generator, int syllables) {
+        String result = null;
+        do {
+            result = generator.generateName(syllables);
+            for (Town town: towns) {
+                if (result.equals(town.name)) {
+                    result = null;
+                } else {
+                    for (NPC npc: town.npcs) {
+                        if (result.equals(npc.name)) {
+                            result = null;
+                            break;
+                        }
+                    }
+                }
+                if (result == null) break;
+            }
+        } while (result != null);
+        return result;
     }
 }

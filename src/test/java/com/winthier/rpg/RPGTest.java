@@ -19,15 +19,7 @@ public final class RPGTest {
             Debug.printHouse(house);
         }
         for (int i = 0; i < 40; i += 1) {
-            System.out.print(generator.generateTownName() + " ");
-        }
-        System.out.println();
-        for (int i = 0; i < 999; i += 1) {
-            String name = generator.generateTownName();
-            String cleaned = generator.cleanSpecialChars(name).toLowerCase();
-            if (cleaned.contains("dumble")) {
-                System.out.println(name);
-            }
+            System.out.print(generator.generateName(1 + generator.random.nextInt(2)) + " ");
         }
         System.out.println();
     }

@@ -33,7 +33,6 @@ final class Generator {
     final Random random = new Random(System.currentTimeMillis());
     final Set<Material> replaceMats = EnumSet.of(Material.LOG, Material.LOG_2, Material.LEAVES, Material.LEAVES_2, Material.PUMPKIN, Material.HUGE_MUSHROOM_1, Material.HUGE_MUSHROOM_2);
     final Map<Vec2, Block> highestBlocks = new HashMap<>();
-    private int npcId = 0;
     private Set<Flag> flags = EnumSet.noneOf(Flag.class);
     private Map<Flag.Strategy, Flag> uniqueFlags = new EnumMap<>(Flag.Strategy.class);
     private Town town;
@@ -48,16 +47,19 @@ final class Generator {
         }
     }
 
-    String generateTownName() {
-        int syllables = 1 + random.nextInt(3);
-        final String[] beginSyllable = {"b", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "qu", "r", "s", "t", "v", "w", "x", "z", "sh", "st", "sn", "sk", "sl", "sm", "ch", "kr", "fr", "gr", "tr", "y", "bl", "ph", "pl", "pr", "str", "chr", "schw"};
+    String generateName() {
+        return generateName(1 + random.nextInt(3));
+    }
+
+    String generateName(int syllables) {
+        final String[] beginSyllable = {"b", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "qu", "r", "s", "t", "v", "w", "x", "z", "sh", "st", "sn", "sk", "sl", "sm", "ch", "kr", "fr", "gr", "tr", "y", "bl", "ph", "pl", "pr", "str", "chr", "schw", "th", "thr", "thn"};
         final String[] vocals = {"a", "e", "i", "o", "u"};
         final String[] longVocals = {"aa", "ee", "oo"};
         final String[] diphtongs = {"au", "ei", "ou"};
-        final String[] accents = {"á", "à", "é", "ê", "è", "ó", "ò", "ú", "ù"};
+        final String[] accents = {"á", "à", "é", "è", "ó", "ò", "ú", "ù"};
         final String[] umlauts = {"ä", "ö", "ü"};
         final String[] endSyllable = {"b", "d", "f", "g", "k", "l", "m", "n", "p", "r", "s", "t", "v", "w", "x", "z", "st", "nd", "sd", "sh", "tsh", "sch", "ng", "nk", "rk", "lt", "ld", "rn", "rt", "rs", "ts", "mb", "rst", "tch", "ch"};
-        final String[] endStrong = {"ff", "gg", "kk", "ll", "mm", "nn", "pp", "rr", "ss", "tt", "tz", "ck"};
+        final String[] endStrong = {"ff", "gg", "kk", "ll", "mm", "nn", "pp", "rr", "ss", "tt", "tz", "ck", "th", "rth", "nth", "ns"};
         StringBuilder sb = new StringBuilder();
         boolean priorHasEnd = true;
         boolean priorStrongEnd = false;
@@ -103,7 +105,7 @@ final class Generator {
         final String[] forbiddenWords = {"nigger", "nigga", "nygger", "nygga", "penis", "penys", "dick", "fuck"};
         for (String forbiddenWord: forbiddenWords) {
             if (cleaned.contains(forbiddenWord)) {
-                return generateTownName();
+                return generateName(syllables);
             }
         }
         return result.substring(0, 1).toUpperCase() + result.substring(1);
@@ -240,7 +242,7 @@ final class Generator {
             floorLevel = floorLevels.get(floorLevels.size() / 2);
         }
         Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
-        house.offset = offset;
+        house.offset = new Vec3(offset.getX(), offset.getY(), offset.getZ());
         {
             int ax, az, bx, bz;
             ax = az = Integer.MAX_VALUE;
@@ -726,74 +728,7 @@ final class Generator {
                 }
             }
         }
-    }
-
-    void plantFountain(Block start, int size) {
-        List<Integer> highest = new ArrayList<>();
-        Map<Vec2, Integer> tiles = new HashMap<>();
-        for (int y = 0; y < size; y += 1) {
-            for (int x = 0; x < size; x += 1) {
-                highest.add(findHighestBlock(start.getRelative(x, 0, y)).getY());
-            }
-        }
-        Collections.sort(highest);
-        int floorLevel = highest.get(highest.size() / 2);
-        Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
-        Flag flagStyle = uniqueFlags.get(Flag.Strategy.STYLE);
-        Tile corner, pillar, wall, wallTop, roof;
-        switch (flagStyle) {
-        case SANDSTONE:
-            corner = Tile.CHISELED_SANDSTONE;
-            pillar = Tile.BIRCH_FENCE;
-            wall = Tile.SANDSTONE;
-            wallTop = Tile.SMOOTH_SANDSTONE;
-            roof = Tile.SANDSTONE_SLAB;
-            break;
-        default:
-            corner = Tile.OAK_LOG;
-            pillar = Tile.COBBLESTONE_WALL;
-            wall = wallTop = Tile.COBBLESTONE;
-            roof = Tile.OAK_WOOD_SLAB;
-        }
-        for (int z = 0; z < size; z += 1) {
-            for (int x = 0; x < size; x += 1) {
-                boolean outerX, outerZ, isWall, isCorner;
-                outerX = x == 0 || x == size - 1;
-                outerZ = z == 0 || z == size - 1;
-                isCorner = outerX && outerZ;
-                isWall = !isCorner && (outerX || outerZ);
-                Block block = offset.getRelative(x, 0, z);
-                if (isCorner) {
-                    corner.setBlock(block.getRelative(0, 1, 0));
-                    pillar.setBlock(block.getRelative(0, 2, 0));
-                    pillar.setBlock(block.getRelative(0, 3, 0));
-                    roof.setBlock(block.getRelative(0, 4, 0));
-                    for (int i = 0; i < 4; i += 1) corner.setBlock(block.getRelative(0, -i, 0));
-                } else if (isWall) {
-                    wallTop.setBlock(block.getRelative(0, 1, 0));
-                    Tile.AIR.setBlock(block.getRelative(0, 2, 0));
-                    Tile.AIR.setBlock(block.getRelative(0, 3, 0));
-                    roof.setBlock(block.getRelative(0, 4, 0));
-                    for (int i = 0; i < 4; i += 1) wall.setBlock(block.getRelative(0, -i, 0));
-                } else {
-                    Tile.AIR.setBlock(block.getRelative(0, 1, 0));
-                    Tile.AIR.setBlock(block.getRelative(0, 2, 0));
-                    Tile.AIR.setBlock(block.getRelative(0, 3, 0));
-                    roof.setBlock(block.getRelative(0, 4, 0));
-                    for (int i = 0; i < 16; i += 1) {
-                        Block blockWater = block.getRelative(0, -i, 0);
-                        if (i < 2) {
-                            blockWater.setType(Material.AIR);
-                        } else {
-                            blockWater.setType(Material.STATIONARY_WATER);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    void spawnVillagers(House house, EntityType entityType) {
+        // Generate NPCs
         int totalNPCs = 1;
         for (int i = 0; i < house.rooms.size() - 1; i += 1) totalNPCs += random.nextInt(2);
         List<Vec2> possibleNPCSpots = new ArrayList<>();
@@ -811,18 +746,75 @@ final class Generator {
         totalNPCs = Math.min(possibleNPCSpots.size(), totalNPCs);
         for (int i = 0; i < totalNPCs; i += 1) {
             Vec2 vec = possibleNPCSpots.get(i);
-            Block block = house.offset.getRelative(vec.x, 1, vec.y);
-            Location loc = block.getLocation().add(0.5, 0, 0.5);
-            Map<String, Object> config = new HashMap<>();
-            config.put("town_id", house.townId);
-            config.put("npc_id", npcId);
-            String typeString;
-            config.put("type", entityType.name());
-            NPCEntity.Watcher watcher = (NPCEntity.Watcher)CustomPlugin.getInstance().getEntityManager().spawnEntity(loc, NPCEntity.CUSTOM_ID, config);
-            watcher.setIds(house.townId, npcId);
-            npcId += 1;
             house.tiles.put(vec, RoomTile.NPC);
-            house.npcs.add(new Vec3(block.getX(), block.getY(), block.getZ()));
+            house.npcs.add(house.offset.relative(vec.x, 1, vec.y));
+        }
+    }
+
+    void plantFountain(Block start, int size) {
+        List<Integer> highest = new ArrayList<>();
+        Map<Vec2, Integer> tiles = new HashMap<>();
+        for (int y = 0; y < size; y += 1) {
+            for (int x = 0; x < size; x += 1) {
+                highest.add(findHighestBlock(start.getRelative(x, 0, y)).getY());
+            }
+        }
+        Collections.sort(highest);
+        int floorLevel = highest.get(highest.size() / 2);
+        Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
+        Flag flagStyle = uniqueFlags.get(Flag.Strategy.STYLE);
+        Style style = new Style(flagStyle, 0);
+        for (int z = 0; z < size; z += 1) {
+            for (int x = 0; x < size; x += 1) {
+                boolean outerX, outerZ, isWall, isCorner;
+                outerX = x == 0 || x == size - 1;
+                outerZ = z == 0 || z == size - 1;
+                isCorner = outerX && outerZ;
+                isWall = !isCorner && (outerX || outerZ);
+                Block block = offset.getRelative(x, 0, z);
+                if (isCorner) {
+                    if (style.cornerTop.isSideways()) {
+                        if (outerX) {
+                            style.cornerTop.facingNorthSouth().setBlock(block.getRelative(0, 1, 0));
+                        } else {
+                            style.cornerTop.facingEastWest().setBlock(block.getRelative(0, 1, 0));
+                        }
+                    } else {
+                        style.cornerTop.setBlock(block.getRelative(0, 1, 0));
+                    }
+                    style.pillar.setBlock(block.getRelative(0, 2, 0));
+                    style.pillar.setBlock(block.getRelative(0, 3, 0));
+                    style.roofSlab.setBlock(block.getRelative(0, 4, 0));
+                    for (int i = 0; i < 4; i += 1) style.corner.setBlock(block.getRelative(0, -i, 0));
+                } else if (isWall) {
+                    if (style.wallTop.isSideways()) {
+                        if (outerX) {
+                            style.wallTop.facingNorthSouth().setBlock(block.getRelative(0, 1, 0));
+                        } else {
+                            style.wallTop.facingEastWest().setBlock(block.getRelative(0, 1, 0));
+                        }
+                    } else {
+                        style.wallTop.setBlock(block.getRelative(0, 1, 0));
+                    }
+                    Tile.AIR.setBlock(block.getRelative(0, 2, 0));
+                    Tile.AIR.setBlock(block.getRelative(0, 3, 0));
+                    style.roofSlab.setBlock(block.getRelative(0, 4, 0));
+                    for (int i = 0; i < 4; i += 1) style.wall.setBlock(block.getRelative(0, -i, 0));
+                } else {
+                    Tile.AIR.setBlock(block.getRelative(0, 1, 0));
+                    Tile.AIR.setBlock(block.getRelative(0, 2, 0));
+                    Tile.AIR.setBlock(block.getRelative(0, 3, 0));
+                    style.roofSlab.setBlock(block.getRelative(0, 4, 0));
+                    for (int i = 0; i < 16; i += 1) {
+                        Block blockWater = block.getRelative(0, -i, 0);
+                        if (i < 2) {
+                            blockWater.setType(Material.AIR);
+                        } else {
+                            blockWater.setType(Material.STATIONARY_WATER);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -1040,7 +1032,7 @@ final class Generator {
         final Map<Vec2, RoomTile> tiles;
         final Map<Vec2, Room> roomMap;
         final List<Vec3> npcs = new ArrayList<>();
-        public Block offset;
+        public Vec3 offset;
         public Cuboid boundingBox;
         int townId;
     }
@@ -1102,13 +1094,13 @@ final class Generator {
         DARK_OAK(Strategy.STYLE),
         CONCRETE(Strategy.STYLE),
         TERRACOTTA(Strategy.STYLE),
-        QUARTZ(Strategy.STYLE),
         STONE(Strategy.STYLE),
         ANDESITE(Strategy.STYLE),
         DIORITE(Strategy.STYLE),
         GRANITE(Strategy.STYLE),
-        PURPUR(Strategy.STYLE),
-        NETHER_BRICK(Strategy.STYLE),
+        QUARTZ(Strategy.STYLE, true),
+        PURPUR(Strategy.STYLE, true),
+        NETHER(Strategy.STYLE, true),
 
         NO_ROOF(Strategy.RANDOM),
         NO_BASE(Strategy.RANDOM),
@@ -1149,6 +1141,7 @@ final class Generator {
         final Tile floor, ceiling;
         final Tile foundation;
         final Tile roofStair, roofSlab, roofDoubleSlab;
+        final Tile pillar;
         final int baseLevel;
         final double randomWallChance;
         Tile floorAlt, ceilingAlt;
@@ -1164,6 +1157,7 @@ final class Generator {
                 roofSlab = Tile.OAK_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
                 floor = ceiling = Tile.OAK_PLANKS;
+                pillar = Tile.COBBLESTONE_WALL;
                 baseLevel = 1;
                 randomWallChance = 0.0;
                 break;
@@ -1178,6 +1172,7 @@ final class Generator {
                 roofSlab = Tile.JUNGLE_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_JUNGLE_WOOD_SLAB;
                 floor = ceiling = Tile.OAK_PLANKS;
+                pillar = Tile.BIRCH_FENCE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1192,6 +1187,7 @@ final class Generator {
                 roofSlab = Tile.ACACIA_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_ACACIA_WOOD_SLAB;
                 floor = ceiling = Tile.DOUBLE_STONE_SLAB;
+                pillar = Tile.ACACIA_FENCE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1204,6 +1200,7 @@ final class Generator {
                 roofSlab = Tile.QUARTZ_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_QUARTZ_SLAB;
                 floor = ceiling = Tile.DOUBLE_STONE_SLAB;
+                pillar = Tile.BIRCH_FENCE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1216,6 +1213,7 @@ final class Generator {
                 roofSlab = Tile.SPRUCE_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_SPRUCE_WOOD_SLAB;
                 floor = ceiling = Tile.SPRUCE_PLANKS;
+                pillar = Tile.COBBLESTONE_WALL;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1228,6 +1226,7 @@ final class Generator {
                 roofSlab = Tile.SPRUCE_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_SPRUCE_WOOD_SLAB;
                 floor = ceiling = Tile.SPRUCE_PLANKS;
+                pillar = Tile.COBBLESTONE_WALL;
                 baseLevel = 0;
                 randomWallChance = 0.5;
                 break;
@@ -1241,6 +1240,7 @@ final class Generator {
                 roofStair = Tile.OAK_WOOD_STAIRS;
                 roofSlab = Tile.OAK_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
+                pillar = Tile.OAK_FENCE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1254,6 +1254,7 @@ final class Generator {
                 roofStair = Tile.SPRUCE_WOOD_STAIRS;
                 roofSlab = Tile.SPRUCE_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_SPRUCE_WOOD_SLAB;
+                pillar = Tile.SPRUCE_FENCE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1267,6 +1268,7 @@ final class Generator {
                 roofStair = Tile.BIRCH_WOOD_STAIRS;
                 roofSlab = Tile.BIRCH_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_BIRCH_WOOD_SLAB;
+                pillar = Tile.BIRCH_FENCE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1280,6 +1282,7 @@ final class Generator {
                 roofStair = Tile.JUNGLE_WOOD_STAIRS;
                 roofSlab = Tile.JUNGLE_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_JUNGLE_WOOD_SLAB;
+                pillar = Tile.JUNGLE_FENCE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1293,6 +1296,7 @@ final class Generator {
                 roofStair = Tile.ACACIA_WOOD_STAIRS;
                 roofSlab = Tile.ACACIA_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_ACACIA_WOOD_SLAB;
+                pillar = Tile.ACACIA_FENCE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1306,6 +1310,7 @@ final class Generator {
                 roofStair = Tile.DARK_OAK_WOOD_STAIRS;
                 roofSlab = Tile.DARK_OAK_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_DARK_OAK_WOOD_SLAB;
+                pillar = Tile.DARK_OAK_FENCE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1318,6 +1323,7 @@ final class Generator {
                 roofStair = Tile.SPRUCE_WOOD_STAIRS;
                 roofSlab = Tile.SPRUCE_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_SPRUCE_WOOD_SLAB;
+                pillar = Tile.COBBLESTONE_WALL;
                 baseLevel = 0;
                 randomWallChance = -1.0;
                 break;
@@ -1331,6 +1337,7 @@ final class Generator {
                 roofStair = Tile.SPRUCE_WOOD_STAIRS;
                 roofSlab = Tile.SPRUCE_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_SPRUCE_WOOD_SLAB;
+                pillar = Tile.COBBLESTONE_WALL;
                 baseLevel = 0;
                 randomWallChance = -1.0;
                 break;
@@ -1345,6 +1352,7 @@ final class Generator {
                 roofStair = Tile.OAK_WOOD_STAIRS;
                 roofSlab = Tile.OAK_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
+                pillar = Tile.COBBLESTONE_WALL;
                 baseLevel = 1;
                 randomWallChance = 0.0;
                 break;
@@ -1355,6 +1363,7 @@ final class Generator {
                 roofStair = Tile.OAK_WOOD_STAIRS;
                 roofSlab = Tile.OAK_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
+                pillar = Tile.COBBLESTONE_WALL;
                 baseLevel = 0;
                 randomWallChance = -1.0;
                 break;
@@ -1365,6 +1374,7 @@ final class Generator {
                 roofStair = Tile.OAK_WOOD_STAIRS;
                 roofSlab = Tile.OAK_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
+                pillar = Tile.COBBLESTONE_WALL;
                 baseLevel = 0;
                 randomWallChance = -1.0;
                 break;
@@ -1375,6 +1385,7 @@ final class Generator {
                 roofStair = Tile.OAK_WOOD_STAIRS;
                 roofSlab = Tile.OAK_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
+                pillar = Tile.COBBLESTONE_WALL;
                 baseLevel = 0;
                 randomWallChance = -1.0;
                 break;
@@ -1389,15 +1400,19 @@ final class Generator {
                 roofStair = Tile.PURPUR_STAIRS;
                 roofSlab = Tile.PURPUR_SLAB;
                 roofDoubleSlab = Tile.PURPUR_DOUBLE_SLAB;
+                pillar = Tile.COBBLESTONE_WALL;
                 baseLevel = 0;
                 randomWallChance = -1.0;
                 break;
-            case NETHER_BRICK:
-                wall = wallRandom = wallTop = corner = cornerTop = foundation = floor = ceiling = Tile.NETHER_BRICK;
-                wallBase = cornerBase = Tile.RED_NETHER_BRICK;
+            case NETHER:
+                wall = wallRandom = foundation = Tile.NETHER_BRICK;
+                floor = Tile.of(Material.MAGMA);
+                ceiling = Tile.of(Material.NETHER_WART_BLOCK);
+                corner = cornerBase = cornerTop = wallBase = wallTop = Tile.RED_NETHER_BRICK;
                 roofStair = Tile.NETHER_BRICK_STAIRS;
                 roofSlab = Tile.NETHER_BRICK_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_NETHER_BRICK_SLAB;
+                pillar = Tile.NETHER_BRICK_FENCE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1414,8 +1429,9 @@ final class Generator {
                 roofSlab = Tile.OAK_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
                 floor = ceiling = Tile.OAK_PLANKS;
-                randomWallChance = 0.0;
+                pillar = Tile.COBBLESTONE_WALL;
                 baseLevel = 0;
+                randomWallChance = 0.0;
             }
             if (floorAlt == null) floorAlt = floor;
             if (ceilingAlt == null) ceilingAlt = ceiling;

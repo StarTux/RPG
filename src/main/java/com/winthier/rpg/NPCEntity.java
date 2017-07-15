@@ -29,6 +29,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityPortalEnterEvent;
 import org.bukkit.event.entity.EntityPortalEvent;
+import org.bukkit.event.entity.EntityTeleportEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.util.Vector;
 
@@ -45,30 +46,6 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
     @Override
     public Entity spawnEntity(Location location) {
         return location.getWorld().spawn(location, Villager.class);
-    }
-
-    @Override
-    public Entity spawnEntity(Location location, Object conf) {
-        EntityType et = null;
-        int townId = -1;
-        int npcId = -1;
-        if (conf instanceof Map) {
-            Map config = (Map)conf;
-            if (config.containsKey("type")) et = EntityType.fromName(config.get("type").toString().toUpperCase());
-            if (config.containsKey("town_id") && config.containsKey("npc_id")) {
-                townId = ((Number)config.get("town_id")).intValue();
-                npcId = ((Number)config.get("npc_id")).intValue();
-            }
-        }
-        if (et == null) et = EntityType.VILLAGER;
-        Entity e = location.getWorld().spawnEntity(location, et);
-        if (e instanceof LivingEntity) {
-            ((LivingEntity)e).setRemoveWhenFarAway(false);
-        }
-        if (townId > -1 && npcId > -1) {
-            e.addScoreboardTag("winthier.rpg.npc=" + townId + ":" + npcId);
-        }
-        return e;
     }
 
     @Override
@@ -92,6 +69,12 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
         if (event.getDamager() instanceof Player) {
             ((Watcher)context.getEntityWatcher()).onTouch((Player)event.getDamager());
         }
+    }
+
+    @EventHandler
+    public void onEntityTeleport(EntityTeleportEvent event, EntityContext context) {
+        if (((Watcher)context.getEntityWatcher()).pluginTeleport) return;
+        event.setCancelled(true);
     }
 
     @EventHandler
@@ -130,6 +113,7 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
         float moveYaw;
         BlockFace moveDirection;
         int moveDuration;
+        boolean pluginTeleport = false;
 
         void onTick() {
             if (touchCooldown > 0) touchCooldown -= 1;
@@ -137,7 +121,7 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
                 moveProgress += falling ? 2 : 1;
                 Vector v = moveFrom.clone().multiply(10 - moveProgress).add(moveTo.clone().multiply(moveProgress)).multiply(0.1);
                 Location loc = v.toLocation(entity.getWorld(), moveYaw, 0);
-                entity.teleport(loc);
+                teleport(loc);
                 if (moveProgress >= 10) {
                     if (moving && !falling && moveDuration > 0) {
                         Block blockTo = entity.getLocation().getBlock().getRelative(moveDirection);
@@ -177,9 +161,7 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
                     BlockFace toFace = null;
                     for (BlockFace face: faces) {
                         Block rel = block.getRelative(face);
-                        if ((rel.getType() == Material.STEP || rel.getType() == Material.WOOD_STEP) && (rel.getData() & 8) == 0) {
-                            rel = rel.getRelative(0, 1, 0);
-                        }
+                        if (rel.getType().isSolid()) rel = rel.getRelative(0, 1, 0);
                         if (!rel.getType().isSolid() && !rel.getRelative(0, 1, 0).getType().isSolid() && !rel.getRelative(0, 2, 0).getType().isSolid()) {
                             toBlock = rel;
                             toFace = face;
@@ -219,12 +201,22 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
             Location loc = entity.getLocation();
             Vector dir = player.getEyeLocation().toVector().subtract(entity.getEyeLocation().toVector()).normalize();
             loc.setDirection(dir);
-            entity.teleport(loc);
+            teleport(loc);
         }
 
         void setIds(int town, int npc) {
             this.townId = town;
             this.npcId = npc;
+        }
+
+        void teleport(Location loc) {
+            pluginTeleport = true;
+            entity.teleport(loc);
+            pluginTeleport = false;
+        }
+
+        void save() {
+            entity.addScoreboardTag("winthier.rpg.npc=" + townId + ":" + npcId);
         }
 
         void load() {
@@ -256,9 +248,4 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
             return false;
         }
     }
-
-    // public enum Type {
-    //     public final EntityType entityType;
-    //     Type(EntityType
-    // }
 }

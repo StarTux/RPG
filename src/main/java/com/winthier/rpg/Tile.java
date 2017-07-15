@@ -96,7 +96,14 @@ final class Tile {
 
     static final Tile END_STONE_BRICKS = of(Material.END_BRICKS);
 
+    static final Tile OAK_FENCE = of(Material.FENCE);
     static final Tile BIRCH_FENCE = of(Material.BIRCH_FENCE);
+    static final Tile SPRUCE_FENCE = of(Material.SPRUCE_FENCE);
+    static final Tile JUNGLE_FENCE = of(Material.JUNGLE_FENCE);
+    static final Tile ACACIA_FENCE = of(Material.ACACIA_FENCE);
+    static final Tile DARK_OAK_FENCE = of(Material.DARK_OAK_FENCE);
+    static final Tile NETHER_BRICK_FENCE = of(Material.NETHER_FENCE);
+
     static final Tile COBBLESTONE = of(Material.COBBLESTONE);
     static final Tile MOSSY_COBBLESTONE = of(Material.MOSSY_COBBLESTONE);
     static final Tile COBBLESTONE_WALL = of(Material.COBBLE_WALL);

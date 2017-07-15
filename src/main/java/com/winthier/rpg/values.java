@@ -29,6 +29,10 @@ final class Vec3 {
     List<Integer> serialize() {
         return Arrays.asList(x, y, z);
     }
+
+    Vec3 relative(int x, int y, int z) {
+        return new Vec3(this.x + x, this.y + y, this.z + z);
+    }
 }
 
 @Value @RequiredArgsConstructor

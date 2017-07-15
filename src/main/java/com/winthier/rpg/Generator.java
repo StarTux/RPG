@@ -31,7 +31,7 @@ import org.bukkit.material.MaterialData;
 
 final class Generator {
     final Random random = new Random(System.currentTimeMillis());
-    final Set<Material> replaceMats = EnumSet.of(Material.LOG, Material.LOG_2, Material.LEAVES, Material.LEAVES_2, Material.PUMPKIN);
+    final Set<Material> replaceMats = EnumSet.of(Material.LOG, Material.LOG_2, Material.LEAVES, Material.LEAVES_2, Material.PUMPKIN, Material.HUGE_MUSHROOM_1, Material.HUGE_MUSHROOM_2);
     final Map<Vec2, Block> highestBlocks = new HashMap<>();
     private int npcId = 0;
     private Set<Flag> flags = EnumSet.noneOf(Flag.class);
@@ -265,12 +265,12 @@ final class Generator {
         switch (flagDoor) {
         case RANDOM:
             switch (flagStyle) {
-            case WOOD: matDoor = Material.WOODEN_DOOR; break;
-            case SPRUCE_WOOD: matDoor = Material.SPRUCE_DOOR; break;
-            case BIRCH_WOOD: matDoor = Material.BIRCH_DOOR; break;
-            case JUNGLE_WOOD: matDoor = Material.JUNGLE_DOOR; break;
-            case ACACIA_WOOD: matDoor = Material.ACACIA_DOOR; break;
-            case DARK_OAK_WOOD: matDoor = Material.DARK_OAK_DOOR; break;
+            case OAK: matDoor = Material.WOODEN_DOOR; break;
+            case SPRUCE: matDoor = Material.SPRUCE_DOOR; break;
+            case BIRCH: matDoor = Material.BIRCH_DOOR; break;
+            case JUNGLE: matDoor = Material.JUNGLE_DOOR; break;
+            case ACACIA: matDoor = Material.ACACIA_DOOR; break;
+            case DARK_OAK: matDoor = Material.DARK_OAK_DOOR; break;
             default:
                 switch (random.nextInt(7)) {
                 case 0: matDoor = Material.ACACIA_DOOR; break;
@@ -292,11 +292,11 @@ final class Generator {
         case OAK_DOOR: default: matDoor = Material.WOODEN_DOOR;
         }
         int color = random.nextInt(16);
+        int roomHeight = 4 + random.nextInt(3);
+        int windowHeight = 1 + random.nextInt(roomHeight - 3);
+        Style style = new Style(flagStyle, color);
         for (Vec2 vec: tiles.keySet()) {
             Block floor = offset.getRelative(vec.x, 0, vec.y);
-            Block[] blocks = {
-                floor, floor.getRelative(0, 1, 0), floor.getRelative(0, 2, 0), floor.getRelative(0, 3, 0), floor.getRelative(0, 4, 0)
-            };
             RoomTile tile = tiles.get(vec);
             RoomTile tileEast = tiles.get(vec.relative(1, 0));
             RoomTile tileSouth = tiles.get(vec.relative(0, 1));
@@ -308,261 +308,6 @@ final class Generator {
             boolean westIsWall = tileWest != null && tileWest.isWall();
             boolean northIsWall = tileNorth != null && tileNorth.isWall();
             boolean tileIsCorner = tileIsWall && ((eastIsWall && southIsWall) || (southIsWall && westIsWall) || (westIsWall && northIsWall) || (northIsWall && eastIsWall));
-            // Materials
-            int dataFloor, dataCeil, dataBase;
-            dataFloor = dataCeil = dataBase = 0;
-            Material matBase = Material.COBBLESTONE;
-            Material matFloor = Material.WOOD;
-            Material matCeil = Material.WOOD;
-            Material[] mats = { Material.COBBLESTONE, Material.COBBLESTONE, Material.COBBLESTONE, Material.COBBLESTONE, Material.COBBLESTONE };
-            int[] data = { 0, 0, 0, 0, 0 };
-            switch (flagStyle) {
-            case COBBLE:
-                if (tileIsCorner) {
-                    mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = matBase = Material.LOG;
-                } else {
-                    mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = matBase = Material.COBBLESTONE;
-                    mats[random.nextInt(mats.length)] = Material.MOSSY_COBBLESTONE;
-                }
-                break;
-            case STONEBRICK:
-                if (tileIsCorner) {
-                    mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = matBase = Material.LOG;
-                } else {
-                    mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = matBase = Material.SMOOTH_BRICK;
-                    data[random.nextInt(data.length)] = random.nextInt(3);
-                }
-                matCeil = matFloor = Material.WOOD;
-                break;
-            case SANDSTONE:
-                matFloor = Material.DOUBLE_STEP;
-                mats[0] = mats[1] = mats[4] = matCeil = matBase = Material.SANDSTONE;
-                if (tileIsCorner) {
-                    mats[2] = mats[3] = Material.SANDSTONE;
-                    data[0] = data[2] = data[3] = dataBase = 2;
-                    data[1] = data[4] = 1;
-                } else {
-                    mats[2] = mats[3] = Material.DOUBLE_STEP;
-                    data[2] = data[3] = 9;
-                    data[4] = 2;
-                }
-                break;
-            case RED_SANDSTONE:
-                matFloor = Material.DOUBLE_STEP;
-                mats[0] = mats[1] = mats[4] = matCeil = matBase = Material.RED_SANDSTONE;
-                if (tileIsCorner) {
-                    mats[2] = mats[3] = Material.RED_SANDSTONE;
-                    data[0] = data[2] = data[3] = dataBase = 2;
-                    data[1] = data[4] = 1;
-                } else {
-                    mats[2] = mats[3] = Material.DOUBLE_STONE_SLAB2;
-                    data[2] = data[3] = 8;
-                    data[4] = 2;
-                }
-                break;
-            case QUARTZ:
-                matCeil = matFloor = Material.DOUBLE_STEP;
-                mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = Material.QUARTZ_BLOCK;
-                if (tileIsCorner) {
-                    matBase = Material.QUARTZ_BLOCK;
-                    dataBase = data[0] = data[1] = data[2] = data[3] = data[4] = dataBase = 2;
-                } else {
-                    data[1] = 1;
-                    data[4] = 1;
-                    matBase = Material.DOUBLE_STEP;
-                    dataBase = 8;
-                }
-                break;
-            case BRICKS:
-                if (tileIsCorner) {
-                    mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = matBase = Material.LOG;
-                    data[0] = data[1] = data[2] = data[3] = data[4] = dataBase = 1;
-                } else {
-                    mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = matBase = Material.BRICK;
-                }
-                matFloor = matCeil = Material.WOOD;
-                dataFloor = dataCeil = 1;
-                break;
-            case KOONTZY:
-                matFloor = matCeil = Material.WOOD;
-                dataFloor = dataCeil = 1;
-                if (tileIsCorner) {
-                    matBase = Material.LOG;
-                    dataBase = 1;
-                    for (int i = 0; i < mats.length; i += 1) {
-                        mats[i] = Material.LOG;
-                        data[i] = 1;
-                    }
-                } else {
-                    matBase = Material.BRICK;
-                    for (int i = 0; i < mats.length; i += 1) {
-                        if (random.nextBoolean()) {
-                            mats[i] = Material.STAINED_CLAY;
-                            data[i] = color;
-                        } else {
-                            mats[i] = Material.BRICK;
-                        }
-                    }
-                }
-                break;
-            case WOOD:
-                if (tileIsCorner) {
-                    matBase = mats[0] = mats[1] = mats[2] = mats[3] = Material.LOG;
-                } else {
-                    data[4] = (eastIsWall || westIsWall) ? 4 : 8;
-                    matBase = mats[0] = mats[1] = mats[2] = mats[3] = Material.WOOD;
-                }
-                mats[4] = Material.LOG;
-                matFloor = matCeil = Material.COBBLESTONE;
-                break;
-            case SPRUCE_WOOD:
-                if (tileIsCorner) {
-                    matBase = mats[0] = mats[1] = mats[2] = mats[3] = Material.LOG;
-                    dataBase = data[0] = data[1] = data[2] = data[3] = 1;
-                    data[4] = 1;
-                } else {
-                    data[4] = (eastIsWall || westIsWall) ? 5 : 9;
-                    matBase = mats[0] = mats[1] = mats[2] = mats[3] = Material.WOOD;
-                    dataBase = data[0] = data[1] = data[2] = data[3] = 1;
-                }
-                mats[4] = Material.LOG;
-                matFloor = matCeil = Material.COBBLESTONE;
-                break;
-            case BIRCH_WOOD:
-                if (tileIsCorner) {
-                    matBase = mats[0] = mats[1] = mats[2] = mats[3] = Material.LOG;
-                    dataBase = data[0] = data[1] = data[2] = data[3] = 2;
-                    data[4] = 2;
-                } else {
-                    data[4] = (eastIsWall || westIsWall) ? 6 : 10;
-                    matBase = mats[0] = mats[1] = mats[2] = mats[3] = Material.WOOD;
-                    dataBase = data[0] = data[1] = data[2] = data[3] = 2;
-                }
-                mats[4] = Material.LOG;
-                matFloor = matCeil = Material.COBBLESTONE;
-                break;
-            case JUNGLE_WOOD:
-                if (tileIsCorner) {
-                    matBase = mats[0] = mats[1] = mats[2] = mats[3] = Material.LOG;
-                    dataBase = data[0] = data[1] = data[2] = data[3] = 3;
-                    data[4] = 3;
-                } else {
-                    data[4] = (eastIsWall || westIsWall) ? 7 : 11;
-                    matBase = mats[0] = mats[1] = mats[2] = mats[3] = Material.WOOD;
-                    dataBase = data[0] = data[1] = data[2] = data[3] = 3;
-                }
-                mats[4] = Material.LOG;
-                matFloor = matCeil = Material.COBBLESTONE;
-                break;
-            case ACACIA_WOOD:
-                if (tileIsCorner) {
-                    matBase = mats[0] = mats[1] = mats[2] = mats[3] = Material.LOG_2;
-                } else {
-                    data[4] = (eastIsWall || westIsWall) ? 4 : 8;
-                    matBase = mats[0] = mats[1] = mats[2] = mats[3] = Material.WOOD;
-                    dataBase = data[0] = data[1] = data[2] = data[3] = 4;
-                }
-                mats[4] = Material.LOG_2;
-                matFloor = matCeil = Material.COBBLESTONE;
-                break;
-            case DARK_OAK_WOOD:
-                if (tileIsCorner) {
-                    matBase = mats[0] = mats[1] = mats[2] = mats[3] = Material.LOG_2;
-                    dataBase = data[0] = data[1] = data[2] = data[3] = 1;
-                    data[4] = 1;
-                } else {
-                    data[4] = (eastIsWall || westIsWall) ? 5 : 9;
-                    matBase = mats[0] = mats[1] = mats[2] = mats[3] = Material.WOOD;
-                    dataBase = data[0] = data[1] = data[2] = data[3] = 5;
-                }
-                mats[4] = Material.LOG_2;
-                matFloor = matCeil = Material.COBBLESTONE;
-                break;
-            case CONCRETE:
-                mats[0] = mats[4] = Material.STONE;
-                data[0] = data[4] = 6;
-                if (tileIsCorner) {
-                    matBase = mats[1] = mats[2] = mats[3] = Material.STONE;
-                    dataBase = data[1] = data[2] = data[3] = 6;
-                } else {
-                    matBase = mats[1] = mats[2] = mats[3] = Material.CONCRETE;
-                    dataBase = data[1] = data[2] = data[3] = color;
-                }
-                matFloor = matCeil = Material.WOOD;
-                dataFloor = dataCeil = 1;
-                break;
-            case TERRACOTTA:
-                if (tileIsCorner) {
-                    matBase = mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = Material.SMOOTH_BRICK;
-                } else {
-                    mats[4] = Material.LOG;
-                    data[4] = (eastIsWall || westIsWall) ? 5 : 9;
-                    matBase = mats[0] = mats[1] = mats[2] = mats[3] = Material.STAINED_CLAY;
-                    dataBase = data[0] = data[1] = data[2] = data[3] = color;
-                }
-                matFloor = matCeil = Material.WOOD;
-                dataFloor = dataCeil = 1;
-                break;
-            case STONE:
-                if (tileIsCorner) {
-                    matBase = mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = Material.SMOOTH_BRICK;
-                } else {
-                    matBase = Material.COBBLESTONE;
-                    mats[0] = mats[2] = mats[3] = Material.STONE;
-                    mats[1] = Material.COBBLESTONE;
-                    mats[4] = Material.SMOOTH_BRICK;
-                }
-                matFloor = matCeil = Material.WOOD;
-                break;
-            case GRANITE:
-                matBase = mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = Material.STONE;
-                matFloor = matCeil = Material.WOOD;
-                if (tileIsCorner) {
-                    dataBase = data[0] = data[1] = data[2] = data[3] = data[4] = 2;
-                } else {
-                    data[1] = data[4] = 2;
-                    dataBase = data[0] = data[2] = data[3] = 1;
-                }
-                break;
-            case DIORITE:
-                matBase = mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = Material.STONE;
-                matFloor = matCeil = Material.WOOD;
-                if (tileIsCorner) {
-                    dataBase = data[0] = data[1] = data[2] = data[3] = data[4] = 4;
-                } else {
-                    data[1] = data[4] = 4;
-                    dataBase = data[0] = data[2] = data[3] = 3;
-                }
-                break;
-            case ANDESITE:
-                matBase = mats[0] = mats[1] = mats[2] = mats[3] = mats[4] = Material.STONE;
-                matFloor = matCeil = Material.WOOD;
-                if (tileIsCorner) {
-                    dataBase = data[0] = data[1] = data[2] = data[3] = data[4] = 6;
-                } else {
-                    data[1] = data[4] = 6;
-                    dataBase = data[0] = data[2] = data[3] = 5;
-                }
-                break;
-            case PURPUR:
-                if (tileIsCorner) {
-                    matBase = mats[1] = mats[2] = mats[3] = Material.PURPUR_PILLAR;
-                    mats[0] = mats[4] = Material.PURPUR_BLOCK;
-                } else {
-                    matBase = mats[0] = Material.PURPUR_BLOCK;
-                    mats[1] = mats[2] = mats[3] = Material.END_BRICKS;
-                    mats[4] = Material.PURPUR_PILLAR;
-                    data[4] = (eastIsWall || westIsWall) ? 4 : 8;
-                }
-                matFloor = (vec.x & 1) == (vec.y & 1) ? Material.PURPUR_BLOCK : Material.PURPUR_PILLAR;
-                matCeil = Material.PURPUR_PILLAR;
-                break;
-            case NETHER_BRICK:
-                matCeil = matFloor = matBase = mats[0] = mats[2] = mats[3] = mats[4] = Material.NETHER_BRICK;
-                mats[1] = Material.RED_NETHER_BRICK;
-                break;
-            default: break;
-            }
             // Make a base
             if (!noBase) {
                 Block block = floor.getRelative(0, -1, 0);
@@ -570,32 +315,45 @@ final class Generator {
                     Material mat = block.getType();
                     boolean doIt = !mat.isSolid() || replaceMats.contains(mat);
                     if (!doIt) break;
-                    block.setTypeIdAndData(matBase.getId(), (byte)dataBase, true);
+                    if (tileIsCorner) {
+                        style.corner.setBlock(block);
+                    } else {
+                        style.foundation.setBlock(block);
+                    }
                     block = block.getRelative(0, -1, 0);
                 }
             }
+            int randomWallCount;
+            if (style.randomWallChance < 0.0) {
+                randomWallCount = 0;
+            } else if (style.randomWallChance == 0) {
+                randomWallCount = 1;
+            } else {
+                randomWallCount = (int)((double)(roomHeight - style.baseLevel - 2) * style.randomWallChance) + 1;
+            }
+            List<Integer> randomWalls = new ArrayList<>();
+            if (randomWallCount > 0) {
+                for (int i = style.baseLevel + 1; i < roomHeight; i += 1) randomWalls.add(i);
+                Collections.shuffle(randomWalls, random);
+                while (randomWalls.size() > randomWallCount) randomWalls.remove(randomWalls.size() - 1);
+            }
             switch (tile) {
-            case WALL:
-                for (int i = 0; i < blocks.length; i += 1) {
-                    blocks[i].setTypeIdAndData(mats[i].getId(), (byte)data[i], true);
-                }
-                break;
             case FLOOR:
-                for (int i = 0; i < blocks.length; i += 1) {
-                    switch (i) {
-                    case 0:
-                        blocks[i].setTypeIdAndData(matFloor.getId(), (byte)dataFloor, true);
-                        break;
-                    case 1:
-                    case 2:
-                    case 3:
-                        blocks[i].setType(Material.AIR);
-                        break;
-                    case 4:
-                        blocks[i].setTypeIdAndData(matCeil.getId(), (byte)dataCeil, true);
-                        break;
-                    default:
-                        blocks[i].setTypeIdAndData(mats[i].getId(), (byte)data[i], true);
+                for (int i = 0; i <= roomHeight; i += 1) {
+                    if (i == 0) {
+                        if ((vec.x & 1) == 0 ^ (vec.y & 1) == 0) {
+                            style.floor.setBlock(floor.getRelative(0, i, 0));
+                        } else {
+                            style.floorAlt.setBlock(floor.getRelative(0, i, 0));
+                        }
+                    } else if (i == roomHeight) {
+                        if ((vec.x & 1) == 0 ^ (vec.y & 1) == 0) {
+                            style.ceiling.setBlock(floor.getRelative(0, i, 0));
+                        } else {
+                            style.ceilingAlt.setBlock(floor.getRelative(0, i, 0));
+                        }
+                    } else {
+                        Tile.AIR.setBlock(floor.getRelative(0, i, 0));
                     }
                 }
                 break;
@@ -608,30 +366,127 @@ final class Generator {
                 } else {
                     dataDoor = random.nextBoolean() ? 1 : 3;
                 }
-                for (int i = 0; i < blocks.length; i += 1) {
-                    switch (i) {
-                    case 1:
-                        blocks[i].setTypeIdAndData(matDoor.getId(), (byte)dataDoor, false);
-                        break;
-                    case 2:
-                        blocks[i].setTypeIdAndData(matDoor.getId(), (byte)0x8, false);
-                        break;
-                    default:
-                        blocks[i].setTypeIdAndData(mats[i].getId(), (byte)data[i], true);
+                for (int i = 0; i <= roomHeight; i += 1) {
+                    if (i == 0) {
+                        if (style.baseLevel == 0) {
+                            if (style.wallBase.isSideways()) {
+                                if (eastIsWall || westIsWall) {
+                                    style.wallBase.facingEastWest().setBlock(floor.getRelative(0, i, 0));
+                                } else {
+                                    style.wallBase.facingNorthSouth().setBlock(floor.getRelative(0, i, 0));
+                                }
+                            } else {
+                                style.wallBase.setBlock(floor.getRelative(0, i, 0));
+                            }
+                        } else {
+                            style.foundation.setBlock(floor.getRelative(0, i, 0));
+                        }
+                    } else if (i == 1) {
+                        floor.getRelative(0, i, 0).setTypeIdAndData(matDoor.getId(), (byte)dataDoor, false);
+                    } else if (i == 2) {
+                        floor.getRelative(0, i, 0).setTypeIdAndData(matDoor.getId(), (byte)0x8, false);
+                    } else if (i == roomHeight) {
+                        if (style.wallTop.isSideways()) {
+                            if (eastIsWall || westIsWall) {
+                                style.wallTop.facingEastWest().setBlock(floor.getRelative(0, i, 0));
+                            } else {
+                                style.wallTop.facingNorthSouth().setBlock(floor.getRelative(0, i, 0));
+                            }
+                        } else {
+                            style.wallTop.setBlock(floor.getRelative(0, i, 0));
+                        }
+                    } else if (randomWalls.contains(i)) {
+                        style.wallRandom.setBlock(floor.getRelative(0, i, 0));
+                    } else {
+                        style.wall.setBlock(floor.getRelative(0, i, 0));
                     }
                 }
                 break;
             case WINDOW:
-                for (int i = 0; i < blocks.length; i += 1) {
-                    switch (i) {
-                    case 2:
-                        blocks[i].setType(Material.THIN_GLASS);
-                        break;
-                    default:
-                        blocks[i].setTypeIdAndData(mats[i].getId(), (byte)data[i], true);
+                for (int i = 0; i <= roomHeight; i += 1) {
+                    if (i == style.baseLevel) {
+                        if (style.wallBase.isSideways()) {
+                            if (eastIsWall || westIsWall) {
+                                style.wallBase.facingEastWest().setBlock(floor.getRelative(0, i, 0));
+                            } else {
+                                style.wallBase.facingNorthSouth().setBlock(floor.getRelative(0, i, 0));
+                            }
+                        } else {
+                            style.wallBase.setBlock(floor.getRelative(0, i, 0));
+                        }
+                    } else if (i == 0) {
+                        style.foundation.setBlock(floor.getRelative(0, i, 0));
+                    } else if (i >= 2 && i < 2 + windowHeight) {
+                        Tile.GLASS_PANE.setBlock(floor.getRelative(0, i, 0));
+                    } else if (i == roomHeight) {
+                        if (style.wallTop.isSideways()) {
+                            if (eastIsWall || westIsWall) {
+                                style.wallTop.facingEastWest().setBlock(floor.getRelative(0, i, 0));
+                            } else {
+                                style.wallTop.facingNorthSouth().setBlock(floor.getRelative(0, i, 0));
+                            }
+                        } else {
+                            style.wallTop.setBlock(floor.getRelative(0, i, 0));
+                        }
+                    } else if (randomWalls.contains(i)) {
+                        style.wallRandom.setBlock(floor.getRelative(0, i, 0));
+                    } else {
+                        style.wall.setBlock(floor.getRelative(0, i, 0));
                     }
                 }
                 break;
+            case WALL:
+            default:
+                if (tileIsCorner) {
+                    for (int i = 0; i <= roomHeight; i += 1) {
+                        if (i == style.baseLevel) {
+                            style.cornerBase.setBlock(floor.getRelative(0, i, 0));
+                        } else if (i == roomHeight) {
+                            style.cornerTop.setBlock(floor.getRelative(0, i, 0));
+                        } else {
+                            style.corner.setBlock(floor.getRelative(0, i, 0));
+                        }
+                    }
+                } else {
+                    for (int i = 0; i <= roomHeight; i += 1) {
+                        if (style.wallTop.isSideways()) {
+                            if (eastIsWall || westIsWall) {
+                                style.wallTop.facingEastWest().setBlock(floor.getRelative(0, i, 0));
+                            } else {
+                                style.wallTop.facingNorthSouth().setBlock(floor.getRelative(0, i, 0));
+                            }
+                        } else {
+                            style.wallTop.setBlock(floor.getRelative(0, i, 0));
+                        }
+                        if (i == style.baseLevel) {
+                            if (style.wallBase.isSideways()) {
+                                if (eastIsWall || westIsWall) {
+                                    style.wallBase.facingEastWest().setBlock(floor.getRelative(0, i, 0));
+                                } else {
+                                    style.wallBase.facingNorthSouth().setBlock(floor.getRelative(0, i, 0));
+                                }
+                            } else {
+                                style.wallBase.setBlock(floor.getRelative(0, i, 0));
+                            }
+                        } else if (i == 0) {
+                            style.foundation.setBlock(floor.getRelative(0, i, 0));
+                        } else if (i == roomHeight) {
+                            if (style.wallTop.isSideways()) {
+                                if (eastIsWall || westIsWall) {
+                                    style.wallTop.facingEastWest().setBlock(floor.getRelative(0, i, 0));
+                                } else {
+                                    style.wallTop.facingNorthSouth().setBlock(floor.getRelative(0, i, 0));
+                                }
+                            } else {
+                                style.wallTop.setBlock(floor.getRelative(0, i, 0));
+                            }
+                        } else if (randomWalls.contains(i)) {
+                            style.wallRandom.setBlock(floor.getRelative(0, i, 0));
+                        } else {
+                            style.wall.setBlock(floor.getRelative(0, i, 0));
+                        }
+                    }
+                }
             }
         }
         // Decorations
@@ -781,65 +636,6 @@ final class Generator {
         }
         // Make a roof
         if (!noRoof) {
-            Material matStair = Material.WOOD_STAIRS;
-            Material doubleSlabMat = Material.WOOD_DOUBLE_STEP;
-            int doubleSlabData = 0;
-            Material slabMat = Material.WOOD_STEP;
-            int slabData = 0;
-            switch (flagStyle) {
-            case SPRUCE_WOOD:
-                doubleSlabData = slabData = 1;
-                matStair = Material.SPRUCE_WOOD_STAIRS;
-                break;
-            case BIRCH_WOOD:
-                doubleSlabData = slabData = 2;
-                matStair = Material.BIRCH_WOOD_STAIRS;
-                break;
-            case JUNGLE_WOOD:
-                doubleSlabData = slabData = 3;
-                matStair = Material.JUNGLE_WOOD_STAIRS;
-                break;
-            case ACACIA_WOOD:
-                doubleSlabData = slabData = 4;
-                matStair = Material.ACACIA_STAIRS;
-                break;
-            case DARK_OAK_WOOD:
-                doubleSlabData = slabData = 5;
-                matStair = Material.DARK_OAK_STAIRS;
-                break;
-            case BRICKS:
-            case TERRACOTTA:
-            case KOONTZY:
-                matStair = Material.SPRUCE_WOOD_STAIRS;
-                doubleSlabData = slabData = 1;
-                break;
-            case SANDSTONE:
-                matStair = Material.JUNGLE_WOOD_STAIRS;
-                doubleSlabData = slabData = 3;
-                break;
-            case RED_SANDSTONE:
-                matStair = Material.ACACIA_STAIRS;
-                doubleSlabData = slabData = 4;
-                break;
-            case QUARTZ:
-                matStair = Material.SMOOTH_STAIRS;
-                doubleSlabMat = Material.DOUBLE_STEP;
-                slabMat = Material.STEP;
-                doubleSlabData = slabData = 5;
-                break;
-            case PURPUR:
-                matStair = Material.PURPUR_STAIRS;
-                doubleSlabMat = Material.PURPUR_DOUBLE_SLAB;
-                slabMat = Material.PURPUR_SLAB;
-                break;
-            case NETHER_BRICK:
-                matStair = Material.NETHER_BRICK_STAIRS;
-                doubleSlabMat = Material.DOUBLE_STEP;
-                slabMat = Material.STEP;
-                slabData = doubleSlabData = 6;
-                break;
-            default: break;
-            }
             Map<Vec2, Integer> roofs = new HashMap<>();
             for (Vec2 vec: tiles.keySet()) {
                 roofs.put(vec, 0);
@@ -861,7 +657,6 @@ final class Generator {
                 relx = 0; rely = 1;
                 roofOri = Orientation.VERTICAL;
             }
-            int highestRoof = 0;
             for (int i = 0; ; i += 1) {
                 List<Vec2> raiseRoofs = new ArrayList<>();
                 Integer roofLevel = i;
@@ -874,18 +669,17 @@ final class Generator {
                 }
                 if (raiseRoofs.isEmpty()) break;
                 for (Vec2 vec: raiseRoofs) roofs.put(vec, i + 1);
-                highestRoof = i + 1;
             }
             boolean useStairs = random.nextBoolean();
             for (Vec2 vec: roofs.keySet()) {
                 int roofLevel = roofs.get(vec);
-                Block roof1 = offset.getRelative(vec.x, 5, vec.y);
+                Block roof1 = offset.getRelative(vec.x, roomHeight + 1, vec.y);
                 Block roof2 = roof1.getRelative(0, useStairs ? roofLevel : roofLevel / 2, 0);
                 RoomTile tile = tiles.get(vec);
                 if (tile != null) {
                     while (roof1.getY() < roof2.getY()) {
                         if (!roof1.getType().isSolid() || replaceMats.contains(roof1.getType())) {
-                            roof1.setTypeIdAndData(doubleSlabMat.getId(), (byte)doubleSlabData, true);
+                            style.roofDoubleSlab.setBlock(roof1);
                         }
                         roof1 = roof1.getRelative(0, 1, 0);
                     }
@@ -896,8 +690,8 @@ final class Generator {
                         Integer nbor2 = roofs.get(vec.relative(-relx, -rely));
                         if (nbor1 == null) nbor1 = -1;
                         if (nbor2 == null) nbor2 = -1;
-                        if (roofLevel == highestRoof && nbor1 < roofLevel && nbor2 < roofLevel) {
-                            roof2.setTypeIdAndData(slabMat.getId(), (byte)slabData, true);
+                        if (nbor1 < roofLevel && nbor2 < roofLevel) {
+                            style.roofSlab.setBlock(roof2);
                         } else {
                             int dataStair;
                             switch (roofOri) {
@@ -916,16 +710,16 @@ final class Generator {
                                 }
                                 break;
                             }
-                            roof2.setTypeIdAndData(matStair.getId(), (byte)dataStair, true);
+                            style.roofStair.or(dataStair).setBlock(roof2);
                         }
                     } else {
                         if ((roofLevel & 1) == 0) {
-                            roof2.setTypeIdAndData(slabMat.getId(), (byte)slabData, true);
+                            style.roofSlab.setBlock(roof2);
                         } else {
                             if (tiles.containsKey(vec)) {
-                                roof2.setTypeIdAndData(doubleSlabMat.getId(), (byte)doubleSlabData, true);
+                                style.roofDoubleSlab.setBlock(roof2);
                             } else {
-                                roof2.setTypeIdAndData(slabMat.getId(), (byte)(slabData | 8), true);
+                                style.roofDoubleSlab.or(8).setBlock(roof2);
                             }
                         }
                     }
@@ -1300,12 +1094,12 @@ final class Generator {
         STONEBRICK(Strategy.STYLE),
         BRICKS(Strategy.STYLE),
         KOONTZY(Strategy.STYLE),
-        WOOD(Strategy.STYLE),
-        SPRUCE_WOOD(Strategy.STYLE),
-        BIRCH_WOOD(Strategy.STYLE),
-        JUNGLE_WOOD(Strategy.STYLE),
-        ACACIA_WOOD(Strategy.STYLE),
-        DARK_OAK_WOOD(Strategy.STYLE),
+        OAK(Strategy.STYLE),
+        SPRUCE(Strategy.STYLE),
+        BIRCH(Strategy.STYLE),
+        JUNGLE(Strategy.STYLE),
+        ACACIA(Strategy.STYLE),
+        DARK_OAK(Strategy.STYLE),
         CONCRETE(Strategy.STYLE),
         TERRACOTTA(Strategy.STYLE),
         QUARTZ(Strategy.STYLE),
@@ -1346,6 +1140,285 @@ final class Generator {
         Flag(Strategy strategy, boolean rare) {
             this.strategy = strategy;
             this.rare = rare;
+        }
+    }
+
+    class Style {
+        final Tile corner, cornerBase, cornerTop;
+        final Tile wall, wallBase, wallTop, wallRandom;
+        final Tile floor, ceiling;
+        final Tile foundation;
+        final Tile roofStair, roofSlab, roofDoubleSlab;
+        final int baseLevel;
+        final double randomWallChance;
+        Tile floorAlt, ceilingAlt;
+        Style(Flag flag, int color) {
+            switch (flag) {
+            case STONEBRICK:
+                wall = wallTop = Tile.STONE_BRICKS;
+                wallBase = Tile.COBBLESTONE;
+                wallRandom = Tile.MOSSY_STONE_BRICKS;
+                corner = cornerBase = cornerTop = Tile.OAK_LOG;
+                foundation = Tile.STONE_BRICKS;
+                roofStair = Tile.OAK_WOOD_STAIRS;
+                roofSlab = Tile.OAK_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
+                floor = ceiling = Tile.OAK_PLANKS;
+                baseLevel = 1;
+                randomWallChance = 0.0;
+                break;
+            case SANDSTONE:
+                wall = wallRandom = Tile.SMOOTH_DOUBLE_SANDSTONE_SLAB;
+                wallBase = Tile.SANDSTONE;
+                wallTop = Tile.SMOOTH_SANDSTONE;
+                corner = Tile.SMOOTH_SANDSTONE;
+                cornerBase = cornerTop = Tile.CHISELED_SANDSTONE;
+                foundation = Tile.SANDSTONE;
+                roofStair = Tile.JUNGLE_WOOD_STAIRS;
+                roofSlab = Tile.JUNGLE_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_JUNGLE_WOOD_SLAB;
+                floor = ceiling = Tile.OAK_PLANKS;
+                baseLevel = 1;
+                randomWallChance = -1.0;
+                break;
+            case RED_SANDSTONE:
+                wall = wallRandom = Tile.SMOOTH_DOUBLE_RED_SANDSTONE_SLAB;
+                wallBase = Tile.RED_SANDSTONE;
+                wallTop = Tile.SMOOTH_RED_SANDSTONE;
+                corner = Tile.SMOOTH_RED_SANDSTONE;
+                cornerBase = cornerTop = Tile.CHISELED_RED_SANDSTONE;
+                foundation = Tile.RED_SANDSTONE;
+                roofStair = Tile.ACACIA_WOOD_STAIRS;
+                roofSlab = Tile.ACACIA_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_ACACIA_WOOD_SLAB;
+                floor = ceiling = Tile.DOUBLE_STONE_SLAB;
+                baseLevel = 1;
+                randomWallChance = -1.0;
+                break;
+            case QUARTZ:
+                wall = wallRandom = Tile.QUARTZ_BLOCK;
+                wallBase = wallTop = Tile.CHISELED_QUARTZ_BLOCK;
+                corner = cornerBase = cornerTop = Tile.PILLAR_QUARTZ_BLOCK;
+                foundation = Tile.SMOOTH_DOUBLE_STONE_SLAB;
+                roofStair = Tile.QUARTZ_STAIRS;
+                roofSlab = Tile.QUARTZ_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_QUARTZ_SLAB;
+                floor = ceiling = Tile.DOUBLE_STONE_SLAB;
+                baseLevel = 1;
+                randomWallChance = -1.0;
+                break;
+            case BRICKS:
+                wall = wallRandom = foundation = Tile.BRICKS;
+                wallTop = Tile.SPRUCE_LOG.facingEastWest();
+                wallBase = Tile.STONE_BRICKS;
+                corner = cornerBase = cornerTop = Tile.SPRUCE_LOG;
+                roofStair = Tile.SPRUCE_WOOD_STAIRS;
+                roofSlab = Tile.SPRUCE_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_SPRUCE_WOOD_SLAB;
+                floor = ceiling = Tile.SPRUCE_PLANKS;
+                baseLevel = 1;
+                randomWallChance = -1.0;
+                break;
+            case KOONTZY:
+                wall = wallBase = foundation = Tile.BRICKS;
+                wallRandom = Tile.TERRACOTTA.or(color);
+                wallTop = Tile.SPRUCE_LOG.facingEastWest();
+                corner = cornerBase = cornerTop = Tile.SPRUCE_LOG;
+                roofStair = Tile.SPRUCE_WOOD_STAIRS;
+                roofSlab = Tile.SPRUCE_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_SPRUCE_WOOD_SLAB;
+                floor = ceiling = Tile.SPRUCE_PLANKS;
+                baseLevel = 0;
+                randomWallChance = 0.5;
+                break;
+            case OAK:
+                wall = wallRandom = foundation = Tile.OAK_PLANKS;
+                wallTop = Tile.OAK_LOG.facingEastWest();
+                wallBase = Tile.STONE_BRICKS;
+                corner = cornerBase = Tile.OAK_LOG;
+                cornerTop = Tile.CHISELED_STONE_BRICKS;
+                floor = ceiling = Tile.COBBLESTONE;
+                roofStair = Tile.OAK_WOOD_STAIRS;
+                roofSlab = Tile.OAK_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
+                baseLevel = 1;
+                randomWallChance = -1.0;
+                break;
+            case SPRUCE:
+                wall = wallRandom = foundation = Tile.SPRUCE_PLANKS;
+                wallTop = Tile.SPRUCE_LOG.facingEastWest();
+                wallBase = Tile.STONE_BRICKS;
+                corner = cornerBase = Tile.SPRUCE_LOG;
+                cornerTop = Tile.CHISELED_STONE_BRICKS;
+                floor = ceiling = Tile.COBBLESTONE;
+                roofStair = Tile.SPRUCE_WOOD_STAIRS;
+                roofSlab = Tile.SPRUCE_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_SPRUCE_WOOD_SLAB;
+                baseLevel = 1;
+                randomWallChance = -1.0;
+                break;
+            case BIRCH:
+                wall = wallRandom = foundation = Tile.BIRCH_PLANKS;
+                wallTop = Tile.BIRCH_LOG.facingEastWest();
+                wallBase = Tile.STONE_BRICKS;
+                corner = cornerBase = Tile.BIRCH_LOG;
+                cornerTop = Tile.CHISELED_STONE_BRICKS;
+                floor = ceiling = Tile.COBBLESTONE;
+                roofStair = Tile.BIRCH_WOOD_STAIRS;
+                roofSlab = Tile.BIRCH_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_BIRCH_WOOD_SLAB;
+                baseLevel = 1;
+                randomWallChance = -1.0;
+                break;
+            case JUNGLE:
+                wall = wallRandom = foundation = Tile.JUNGLE_PLANKS;
+                wallTop = Tile.JUNGLE_LOG.facingEastWest();
+                wallBase = Tile.STONE_BRICKS;
+                corner = cornerBase = Tile.JUNGLE_LOG;
+                cornerTop = Tile.CHISELED_STONE_BRICKS;
+                floor = ceiling = Tile.COBBLESTONE;
+                roofStair = Tile.JUNGLE_WOOD_STAIRS;
+                roofSlab = Tile.JUNGLE_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_JUNGLE_WOOD_SLAB;
+                baseLevel = 1;
+                randomWallChance = -1.0;
+                break;
+            case ACACIA:
+                wall = wallRandom = foundation = Tile.ACACIA_PLANKS;
+                wallTop = Tile.ACACIA_LOG.facingEastWest();
+                wallBase = Tile.STONE_BRICKS;
+                corner = cornerBase = Tile.ACACIA_LOG;
+                cornerTop = Tile.CHISELED_STONE_BRICKS;
+                floor = ceiling = Tile.COBBLESTONE;
+                roofStair = Tile.ACACIA_WOOD_STAIRS;
+                roofSlab = Tile.ACACIA_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_ACACIA_WOOD_SLAB;
+                baseLevel = 1;
+                randomWallChance = -1.0;
+                break;
+            case DARK_OAK:
+                wall = wallRandom = foundation = Tile.DARK_OAK_PLANKS;
+                wallTop = Tile.DARK_OAK_LOG.facingEastWest();
+                wallBase = Tile.STONE_BRICKS;
+                corner = cornerBase = Tile.DARK_OAK_LOG;
+                cornerTop = Tile.CHISELED_STONE_BRICKS;
+                floor = ceiling = Tile.COBBLESTONE;
+                roofStair = Tile.DARK_OAK_WOOD_STAIRS;
+                roofSlab = Tile.DARK_OAK_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_DARK_OAK_WOOD_SLAB;
+                baseLevel = 1;
+                randomWallChance = -1.0;
+                break;
+            case CONCRETE:
+                wall = wallRandom = foundation = Tile.CONCRETE.or(color);
+                wallBase = wallTop = Tile.STONE_BRICKS;
+                corner = cornerBase = Tile.STONE_BRICKS;
+                cornerTop = Tile.CHISELED_STONE_BRICKS;
+                floor = ceiling = Tile.SPRUCE_PLANKS;
+                roofStair = Tile.SPRUCE_WOOD_STAIRS;
+                roofSlab = Tile.SPRUCE_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_SPRUCE_WOOD_SLAB;
+                baseLevel = 0;
+                randomWallChance = -1.0;
+                break;
+            case TERRACOTTA:
+                wall = wallRandom = foundation = Tile.TERRACOTTA.or(color);
+                wallBase = Tile.STONE_BRICKS;
+                wallTop = Tile.SPRUCE_LOG.facingEastWest();
+                corner = cornerBase = Tile.STONE_BRICKS;
+                cornerTop = Tile.CHISELED_STONE_BRICKS;
+                floor = ceiling = Tile.SPRUCE_PLANKS;
+                roofStair = Tile.SPRUCE_WOOD_STAIRS;
+                roofSlab = Tile.SPRUCE_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_SPRUCE_WOOD_SLAB;
+                baseLevel = 0;
+                randomWallChance = -1.0;
+                break;
+            case STONE:
+                wall = Tile.STONE;
+                wallRandom = foundation = Tile.COBBLESTONE;
+                wallBase = Tile.COBBLESTONE;
+                wallTop = Tile.STONE_BRICKS;
+                corner = cornerBase = Tile.STONE_BRICKS;
+                cornerTop = Tile.CHISELED_STONE_BRICKS;
+                floor = ceiling = Tile.OAK_PLANKS;
+                roofStair = Tile.OAK_WOOD_STAIRS;
+                roofSlab = Tile.OAK_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
+                baseLevel = 1;
+                randomWallChance = 0.0;
+                break;
+            case GRANITE:
+                wall = wallRandom = foundation = Tile.GRANITE;
+                wallBase = wallTop = corner = cornerBase = cornerTop = Tile.POLISHED_GRANITE;
+                floor = ceiling = Tile.OAK_PLANKS;
+                roofStair = Tile.OAK_WOOD_STAIRS;
+                roofSlab = Tile.OAK_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
+                baseLevel = 0;
+                randomWallChance = -1.0;
+                break;
+            case DIORITE:
+                wall = wallRandom = foundation = Tile.DIORITE;
+                wallBase = wallTop = corner = cornerBase = cornerTop = Tile.POLISHED_DIORITE;
+                floor = ceiling = Tile.OAK_PLANKS;
+                roofStair = Tile.OAK_WOOD_STAIRS;
+                roofSlab = Tile.OAK_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
+                baseLevel = 0;
+                randomWallChance = -1.0;
+                break;
+            case ANDESITE:
+                wall = wallRandom = foundation = Tile.ANDESITE;
+                wallBase = wallTop = corner = cornerBase = cornerTop = Tile.POLISHED_ANDESITE;
+                floor = ceiling = Tile.OAK_PLANKS;
+                roofStair = Tile.OAK_WOOD_STAIRS;
+                roofSlab = Tile.OAK_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
+                baseLevel = 0;
+                randomWallChance = -1.0;
+                break;
+            case PURPUR:
+                wall = wallRandom = foundation = Tile.END_STONE_BRICKS;
+                wallBase = Tile.PURPUR_BLOCK;
+                wallTop = Tile.PURPUR_PILLAR.facingEastWest();
+                corner = Tile.PURPUR_PILLAR;
+                cornerBase = cornerTop = Tile.PURPUR_BLOCK;
+                floor = ceiling = Tile.PURPUR_BLOCK;
+                floorAlt = ceilingAlt = Tile.PURPUR_PILLAR;
+                roofStair = Tile.PURPUR_STAIRS;
+                roofSlab = Tile.PURPUR_SLAB;
+                roofDoubleSlab = Tile.PURPUR_DOUBLE_SLAB;
+                baseLevel = 0;
+                randomWallChance = -1.0;
+                break;
+            case NETHER_BRICK:
+                wall = wallRandom = wallTop = corner = cornerTop = foundation = floor = ceiling = Tile.NETHER_BRICK;
+                wallBase = cornerBase = Tile.RED_NETHER_BRICK;
+                roofStair = Tile.NETHER_BRICK_STAIRS;
+                roofSlab = Tile.NETHER_BRICK_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_NETHER_BRICK_SLAB;
+                baseLevel = 1;
+                randomWallChance = -1.0;
+                break;
+            case COBBLE:
+            default:
+                wall = Tile.COBBLESTONE;
+                wallBase = Tile.OAK_LOG.facingEastWest();
+                wallTop = Tile.OAK_LOG.facingEastWest();
+                wallRandom = Tile.MOSSY_COBBLESTONE;
+                corner = Tile.OAK_LOG;
+                cornerBase = cornerTop = Tile.CHISELED_STONE_BRICKS;
+                foundation = Tile.COBBLESTONE;
+                roofStair = Tile.OAK_WOOD_STAIRS;
+                roofSlab = Tile.OAK_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
+                floor = ceiling = Tile.OAK_PLANKS;
+                randomWallChance = 0.0;
+                baseLevel = 0;
+            }
+            if (floorAlt == null) floorAlt = floor;
+            if (ceilingAlt == null) ceilingAlt = ceiling;
         }
     }
 }

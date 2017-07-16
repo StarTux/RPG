@@ -123,6 +123,9 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
             } else if (structure.equals("fountain")) {
                 generator.plantFountain(player.getLocation().getBlock().getRelative(-size / 2, 0, -size / 2), size);
                 sender.sendMessage("Fountain generated");
+            } else if (structure.equals("farm")) {
+                generator.plantFarm(player.getLocation().getBlock().getRelative(-size / 2, 0, -size / 2), size, size);
+                sender.sendMessage("Farm generated");
             } else {
                 sender.sendMessage("Unknown structure: '" + structure + "'");
             }
@@ -186,10 +189,12 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
-        RPGWorld rpgWorld = getRPGWorld(event.getBlock().getWorld());
-        int x = event.getBlock().getX();
-        int y = event.getBlock().getY();
-        int z = event.getBlock().getZ();
+        Block block = event.getBlock();
+        RPGWorld rpgWorld = getRPGWorld(block.getWorld());
+        if (rpgWorld == null) return;
+        int x = block.getX();
+        int y = block.getY();
+        int z = block.getZ();
         boolean belongsToTown = false;
         for (RPGWorld.Town town: rpgWorld.towns) {
             if (town.area.contains(x, z)) {
@@ -208,13 +213,14 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
             }
         }
         if (!allowedGameModes.contains(player.getGameMode())) return;
-        if (belongsToTown) {
+        Material mat = block.getType();
+        if (belongsToTown && mat.isSolid()) {
             PotionEffect potion = player.getPotionEffect(PotionEffectType.SLOW_DIGGING);
             int level;
             int duration;
             if (potion != null) {
                 level = potion.getAmplifier() + 1;
-                duration = Math.max(200, potion.getDuration() * 2);
+                duration = Math.max(200, potion.getDuration());
             } else {
                 level = 0;
                 duration = 200;

@@ -69,7 +69,7 @@ final class RPGWorld {
 
     static final class House {
         enum Type {
-            HOUSE, FOUNTAIN;
+            HOUSE, FOUNTAIN, FARM;
         }
 
         final String typeName;

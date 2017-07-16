@@ -190,6 +190,7 @@ final class Generator {
     void plantTown(World world, Town town) {
         Collections.shuffle(town.chunks);
         int fountains = 1;
+        int farms = 1 + random.nextInt(3);
         for (Vec2 chunk: town.chunks) {
             if (fountains > 0) {
                 fountains -= 1;
@@ -197,6 +198,13 @@ final class Generator {
                 int offx = random.nextInt(14 - size);
                 int offy = random.nextInt(14 - size);
                 plantFountain(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), size);
+            } else if (farms > 0) {
+                farms -= 1;
+                int width = 7 + random.nextInt(4) * 2;
+                int height = 7 + random.nextInt(4) * 2;
+                int offx = random.nextInt(14 - width);
+                int offy = random.nextInt(14 - height);
+                plantFarm(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), width, height);
             } else {
                 int width = 4 + random.nextInt(11);
                 int height = 4 + random.nextInt(11);
@@ -666,7 +674,7 @@ final class Generator {
                             if (tiles.containsKey(vec)) {
                                 style.roofDoubleSlab.setBlock(roof2);
                             } else {
-                                style.roofDoubleSlab.or(8).setBlock(roof2);
+                                style.roofSlab.or(8).setBlock(roof2);
                             }
                         }
                     }
@@ -707,8 +715,7 @@ final class Generator {
         Collections.sort(highest);
         int floorLevel = highest.get(highest.size() / 2);
         Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
-        Flag flagStyle = uniqueFlags.get(Flag.Strategy.STYLE);
-        Style style = new Style(flagStyle, 0);
+        Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), 0);
         int height = 4 + random.nextInt(3);
         for (int z = 0; z < size; z += 1) {
             for (int x = 0; x < size; x += 1) {
@@ -762,6 +769,80 @@ final class Generator {
             Cuboid bb = new Cuboid(offset.getX(), offset.getY() - 16, offset.getZ(),
                                    offset.getX() + size, offset.getY() + height, offset.getZ() + size);
             town.structures.add(new Structure("fountain", bb, Arrays.asList(bb)));
+        }
+    }
+
+    void plantFarm(Block start, int width, int height) {
+        List<Integer> highest = new ArrayList<>();
+        Map<Vec2, Integer> tiles = new HashMap<>();
+        for (int y = 0; y < height; y += 1) {
+            for (int x = 0; x < width; x += 1) {
+                highest.add(findHighestBlock(start.getRelative(x, 0, y)).getY());
+            }
+        }
+        Collections.sort(highest);
+        int floorLevel = highest.get(highest.size() / 2);
+        Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
+        Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), 0);
+        Tile fruit;
+        switch (random.nextInt(5)) {
+        case 0: fruit = Tile.of(Material.BEETROOT_BLOCK); break;
+        case 1: fruit = Tile.of(Material.CARROT); break;
+        case 2: fruit = Tile.of(Material.POTATO); break;
+        case 3: default: fruit = Tile.of(Material.CROPS);
+        }
+        int cx = width / 2;
+        int cy = height / 2;
+        for (int z = 0; z < height; z += 1) {
+            for (int x = 0; x < width; x += 1) {
+                boolean outerX, outerZ, isWall, isCorner;
+                outerX = x == 0 || x == width - 1;
+                outerZ = z == 0 || z == height - 1;
+                isCorner = outerX && outerZ;
+                Orientation ori = outerX ? Orientation.VERTICAL : Orientation.HORIZONTAL;
+                isWall = !isCorner && (outerX || outerZ);
+                Tile tile, tileBelow, tileAbove;
+                if (isCorner) {
+                    tile = style.cornerTop.orient(ori);
+                    tileBelow = style.corner;
+                    tileAbove = style.pillar;
+                } else if (isWall) {
+                    tile = style.wallTop.orient(ori);
+                    tileBelow = style.wall;
+                    if (x != cx && z != cy) {
+                        tileAbove = style.pillar;
+                    } else {
+                        tileAbove = Tile.AIR;
+                    }
+                } else if (x == cx && z == cy) {
+                    tile = Tile.of(Material.STATIONARY_WATER);
+                    tileBelow = style.foundation;
+                    tileAbove = Tile.of(Material.GLOWSTONE);
+                } else {
+                    tile = Tile.of(Material.SOIL, 0x7);
+                    tileBelow = style.foundation;
+                    tileAbove = fruit;
+                }
+                Block block = offset.getRelative(x, 0, z);
+                Block foundation = block.getRelative(0, -1, 0);
+                while (!foundation.getType().isSolid()) {
+                    tileBelow.setBlock(foundation);
+                    foundation = foundation.getRelative(0, -1, 0);
+                }
+                Block upper = block.getRelative(0, 1, 0);
+                int highestY = block.getWorld().getHighestBlockYAt(block.getX(), block.getZ());
+                while (upper.getY() <= highestY || upper.getType() != Material.AIR) {
+                    Tile.AIR.setBlock(upper);
+                    upper = upper.getRelative(0, 1, 0);
+                }
+                tile.setBlockNoPhysics(block);
+                tileAbove.setBlockNoPhysics(block.getRelative(0, 1, 0));
+            }
+        }
+        if (town != null) {
+            Cuboid bb = new Cuboid(offset.getX(), offset.getY(), offset.getZ(),
+                                   offset.getX() + width, offset.getY() + 1, offset.getZ() + height);
+            town.structures.add(new Structure("farm", bb, Arrays.asList(bb)));
         }
     }
 

@@ -740,7 +740,7 @@ final class Generator {
                     }
                     for (int i = 0; i < 4; i += 1) style.wall.setBlock(block.getRelative(0, -i, 0));
                 } else {
-                    for (int i = 2; i <= height; i += 1) {
+                    for (int i = 1; i <= height; i += 1) {
                         if (i < height) {
                             Tile.AIR.setBlock(block.getRelative(0, i, 0));
                         } else {

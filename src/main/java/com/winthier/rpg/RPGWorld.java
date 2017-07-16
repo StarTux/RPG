@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -17,9 +18,11 @@ import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.EntityType;
@@ -65,30 +68,49 @@ final class RPGWorld {
     }
 
     static final class House {
+        enum Type {
+            HOUSE, FOUNTAIN;
+        }
+
+        final String typeName;
         final Cuboid boundingBox;
         final List<Cuboid> rooms = new ArrayList<>();
+        Type type;
 
-        House(Cuboid boundingBox, List<Cuboid> rooms) {
+        House(String typeName, Cuboid boundingBox, List<Cuboid> rooms) {
+            this.typeName = typeName;
             this.boundingBox = boundingBox;
             this.rooms.addAll(rooms);
+            try {
+                type = Type.valueOf(typeName.toUpperCase());
+            } catch (IllegalArgumentException iae) {
+                iae.printStackTrace();
+            }
         }
 
         House(ConfigurationSection config) {
+            typeName = config.getString("type");
             boundingBox = new Cuboid(config.getIntegerList("bounding_box"));
             for (Object o: config.getList("rooms")) {
                 rooms.add(new Cuboid((List<Integer>)o));
             }
+            try {
+                type = Type.valueOf(typeName.toUpperCase());
+            } catch (IllegalArgumentException iae) {
+                iae.printStackTrace();
+            }
         }
 
         Map<String, Object> serialize() {
-            Map<String, Object> result = new HashMap<>();
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("type", typeName);
             result.put("bounding_box", boundingBox.serialize());
             result.put("rooms", rooms.stream().map(r -> r.serialize()).collect(Collectors.toList()));
             return result;
         }
     }
 
-    static final class Town {
+    final class Town {
         final Rectangle area;
         final Rectangle questArea;
         final List<NPC> npcs = new ArrayList<>();
@@ -135,16 +157,36 @@ final class RPGWorld {
         }
 
         Map<String, Object> serialize() {
-            Map<String, Object> result = new HashMap<>();
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("name", name);
+            result.put("fraction", fraction.name().toLowerCase());
+            result.put("area", area.serialize());
+            result.put("tags", tags);
+            result.put("visited", visited);
+            result.put("houses", houses.stream().map(house -> house.serialize()).collect(Collectors.toList()));
             result.put("npcs", npcs.stream().map(npc -> npc.serialize()).collect(Collectors.toList()));
             result.put("quests", quests.stream().map(quest -> quest.serialize()).collect(Collectors.toList()));
-            result.put("houses", houses.stream().map(house -> house.serialize()).collect(Collectors.toList()));
-            result.put("area", area.serialize());
-            result.put("name", name);
-            result.put("tags", tags);
-            result.put("fraction", fraction.name().toLowerCase());
-            result.put("visited", visited);
             return result;
+        }
+
+        void visit() {
+            if (visited) return;
+            visited = true;
+            dirty = true;
+            for (House house: houses) {
+                Cuboid bb = house.boundingBox.grow(1);
+                for (int az = bb.az; az <= bb.bz; az += 1) {
+                    for (int ay = bb.ay; ay <= bb.by; ay += 1) {
+                        for (int ax = bb.ax; ax <= bb.bx; ax += 1) {
+                            Block block = world.getBlockAt(ax, ay, az);
+                            if (block.getType() == Material.AIR && block.getLightLevel() == 0) {
+                                block.setType(Material.GLOWSTONE);
+                                plugin.getServer().getScheduler().runTask(plugin, () -> block.setType(Material.AIR));
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -166,7 +208,7 @@ final class RPGWorld {
         }
 
         Map<String, Object> serialize() {
-            Map<String, Object> result = new HashMap<>();
+            Map<String, Object> result = new LinkedHashMap<>();
             result.put("home", home.serialize());
             result.put("message", message);
             result.put("name", name);
@@ -221,7 +263,7 @@ final class RPGWorld {
         }
 
         Map<String, Object> serialize() {
-            Map<String, Object> result = new HashMap<>();
+            Map<String, Object> result = new LinkedHashMap<>();
             result.put("type", type.name());
             result.put("amount", amount);
             result.put("settings", settings.entrySet().stream().collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue())));
@@ -306,7 +348,10 @@ final class RPGWorld {
         Town town = new Town(area, townName, fraction);
         town.tags.addAll(flags.stream().map(f -> f.name().toLowerCase()).collect(Collectors.toList()));
         for (Generator.House gh: gt.houses) {
-            town.houses.add(new House(gh.boundingBox, gh.rooms.stream().map(r -> r.boundingBox).collect(Collectors.toList())));
+            town.houses.add(new House("house", gh.boundingBox, gh.rooms.stream().map(r -> r.boundingBox).collect(Collectors.toList())));
+        }
+        for (Generator.Structure gs: gt.structures) {
+            town.houses.add(new House(gs.name, gs.boundingBox, gs.boundingBoxes));
         }
         // Quests
         int totalQuests = Math.min(town.npcs.size(), 3 + generator.random.nextInt(3));
@@ -443,23 +488,22 @@ final class RPGWorld {
     }
 
     enum Fraction {
-        VILLAGER(false, Arrays.asList(EntityType.VILLAGER)),
-        ZOMBIE_VILLAGER(false, Arrays.asList(EntityType.ZOMBIE_VILLAGER)),
-        SKELETON(false, Arrays.asList(EntityType.SKELETON, EntityType.STRAY, EntityType.WITHER_SKELETON)),
-        ZOMBIE(false, Arrays.asList(EntityType.ZOMBIE, EntityType.HUSK, EntityType.ZOMBIE_VILLAGER)),
-        PIG_ZOMBIE(false, Arrays.asList(EntityType.ZOMBIE)),
-        DARK_MAGIC(false, Arrays.asList(EntityType.WITCH, EntityType.EVOKER, EntityType.VINDICATOR)),
-
-        ENDERMAN(true, Arrays.asList(EntityType.ENDERMAN)),
-        CREEPER(true, Arrays.asList(EntityType.CREEPER)),
-        BLAZE(true, Arrays.asList(EntityType.BLAZE));
+        VILLAGER(false, Arrays.asList(EntityType.VILLAGER), ChatColor.GREEN),
+        ZOMBIE_VILLAGER(false, Arrays.asList(EntityType.ZOMBIE_VILLAGER), ChatColor.DARK_GREEN),
+        SKELETON(false, Arrays.asList(EntityType.SKELETON, EntityType.STRAY), ChatColor.WHITE),
+        ZOMBIE(false, Arrays.asList(EntityType.ZOMBIE, EntityType.HUSK, EntityType.ZOMBIE_VILLAGER), ChatColor.DARK_GREEN),
+        OCCULT(false, Arrays.asList(EntityType.WITCH, EntityType.EVOKER, EntityType.VINDICATOR), ChatColor.LIGHT_PURPLE),
+        NETHER(false, Arrays.asList(EntityType.PIG_ZOMBIE, EntityType.BLAZE, EntityType.WITHER_SKELETON), ChatColor.RED),
+        CREEPER(true, Arrays.asList(EntityType.CREEPER), ChatColor.DARK_GREEN);
 
         public final boolean rare;
         public final List<EntityType> villagerTypes;
+        public final ChatColor color;
 
-        Fraction(boolean rare, List<EntityType> villagerTypes) {
+        Fraction(boolean rare, List<EntityType> villagerTypes, ChatColor color) {
             this.rare = rare;
             this.villagerTypes = villagerTypes;
+            this.color = color;
         }
     }
 

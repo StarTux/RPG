@@ -197,7 +197,7 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
             NPCSpeechEntity.Watcher speechWatcher = (NPCSpeechEntity.Watcher)CustomPlugin.getInstance().getEntityManager().spawnEntity(entity.getEyeLocation().add(0, 10, 0), NPCSpeechEntity.CUSTOM_ID);
             speechWatcher.setLiving(entity);
             speechWatcher.getMessages().addAll(Msg.wrap(rpgworld.getNPCMessage(townId, npcId, player), 16));
-            speechWatcher.setColor(ChatColor.GREEN);
+            speechWatcher.setColor(rpgworld.towns.get(townId).fraction.color);
             Location loc = entity.getLocation();
             Vector dir = player.getEyeLocation().toVector().subtract(entity.getEyeLocation().toVector()).normalize();
             loc.setDirection(dir);

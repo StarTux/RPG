@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.Getter;
+import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -22,9 +23,12 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 @Getter
 public final class RPGPlugin extends JavaPlugin implements Listener {
@@ -34,6 +38,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
     private Messages messages = null;
     private boolean createTowns = false;
     private Reputations reputations;
+    private Set<GameMode> allowedGameModes = EnumSet.of(GameMode.SURVIVAL, GameMode.ADVENTURE);
 
     @Override
     public void onEnable() {
@@ -178,33 +183,43 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         return reputations;
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockBreak(BlockBreakEvent event) {
+        Player player = event.getPlayer();
         RPGWorld rpgWorld = getRPGWorld(event.getBlock().getWorld());
         int x = event.getBlock().getX();
         int y = event.getBlock().getY();
         int z = event.getBlock().getZ();
+        boolean belongsToTown = false;
         for (RPGWorld.Town town: rpgWorld.towns) {
             if (town.area.contains(x, z)) {
-                if (!town.visited) {
-                    town.visited = true;
-                    rpgWorld.dirty = true;
-                    for (RPGWorld.House house: town.houses) {
-                        Cuboid bb = house.boundingBox.grow(1);
-                        for (int az = bb.az; az <= bb.bz; az += 1) {
-                            for (int ay = bb.ay; ay <= bb.by; ay += 1) {
-                                for (int ax = bb.ax; ax <= bb.bx; ax += 1) {
-                                    Block block = rpgWorld.world.getBlockAt(ax, ay, az);
-                                    if (block.getType() == Material.AIR && block.getLightLevel() == 0) {
-                                        block.setType(Material.GLOWSTONE);
-                                        getServer().getScheduler().runTask(this, () -> block.setType(Material.AIR));
-                                    }
-                                }
-                            }
+                town.visit();
+                for (RPGWorld.House house: town.houses) {
+                    for (Cuboid bb: house.rooms) {
+                        if (bb.contains(x, y, z)) {
+                            belongsToTown = true;
                         }
                     }
                 }
+                if (belongsToTown) {
+                    getReputations().giveRepurtation(player, town.fraction, -1);
+                    break;
+                }
             }
+        }
+        if (!allowedGameModes.contains(player.getGameMode())) return;
+        if (belongsToTown) {
+            PotionEffect potion = player.getPotionEffect(PotionEffectType.SLOW_DIGGING);
+            int level;
+            int duration;
+            if (potion != null) {
+                level = potion.getAmplifier() + 1;
+                duration = Math.max(200, potion.getDuration() * 2);
+            } else {
+                level = 0;
+                duration = 200;
+            }
+            player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_DIGGING, duration, level), true);
         }
     }
 }

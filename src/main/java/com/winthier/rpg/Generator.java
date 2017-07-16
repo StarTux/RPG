@@ -127,6 +127,9 @@ final class Generator {
 
     Town tryToPlantTown(Chunk centerChunk, int sizeInChunks) {
         World world = centerChunk.getWorld();
+        double size = world.getWorldBorder().getSize() * 0.5;
+        Chunk chunkMin = world.getWorldBorder().getCenter().add(-size, 0, -size).getBlock().getRelative(-1, 0, -1).getChunk();
+        Chunk chunkMax = world.getWorldBorder().getCenter().add(size, 0, size).getBlock().getRelative(1, 0, 1).getChunk();
         List<Chunk> todo = new ArrayList<>();
         todo.add(centerChunk);
         Set<Chunk> done = new HashSet<>();
@@ -136,6 +139,8 @@ final class Generator {
             Chunk chunk = todo.remove(0);
             if (done.contains(chunk)) continue;
             done.add(chunk);
+            if (chunk.getX() <= chunkMin.getX() || chunk.getX() >= chunkMax.getX() ||
+                chunk.getZ() <= chunkMin.getZ() || chunk.getZ() >= chunkMax.getZ()) continue;
             List<Integer> heights = new ArrayList<>();
             for (int z = 0; z < 16; z += 1) {
                 for (int x = 0; x < 16; x += 1) {
@@ -829,7 +834,7 @@ final class Generator {
                         if (i < height) {
                             style.pillar.setBlock(block.getRelative(0, i, 0));
                         } else {
-                            style.roofSlab.setBlock(block.getRelative(0, i, 0));
+                            style.slab.setBlock(block.getRelative(0, i, 0));
                         }
                     }
                     for (int i = 0; i < 4; i += 1) style.corner.setBlock(block.getRelative(0, -i, 0));
@@ -839,7 +844,7 @@ final class Generator {
                         if (i < height) {
                             Tile.AIR.setBlock(block.getRelative(0, i, 0));
                         } else {
-                            style.roofSlab.setBlock(block.getRelative(0, i, 0));
+                            style.slab.setBlock(block.getRelative(0, i, 0));
                         }
                     }
                     for (int i = 0; i < 4; i += 1) style.wall.setBlock(block.getRelative(0, -i, 0));
@@ -848,7 +853,7 @@ final class Generator {
                         if (i < height) {
                             Tile.AIR.setBlock(block.getRelative(0, i, 0));
                         } else {
-                            style.roofSlab.setBlock(block.getRelative(0, i, 0));
+                            style.slab.setBlock(block.getRelative(0, i, 0));
                         }
                     }
                     for (int i = 0; i < 16; i += 1) {
@@ -914,12 +919,12 @@ final class Generator {
                 if (isCorner) {
                     tile = style.cornerTop.orient(ori);
                     tileBelow = style.corner;
-                    tileAbove = style.pillar;
+                    tileAbove = style.fence;
                 } else if (isWall) {
                     tile = style.wallTop.orient(ori);
                     tileBelow = style.wall;
                     if (x != cx && z != cy) {
-                        tileAbove = style.pillar;
+                        tileAbove = style.fence;
                     } else {
                         tileAbove = Tile.AIR;
                     }
@@ -948,7 +953,7 @@ final class Generator {
                 tile.setBlockNoPhysics(block);
                 tileAbove.setBlockNoPhysics(block.getRelative(0, 1, 0));
                 if (isCenter) {
-                    style.roofSlab.setBlock(block.getRelative(0, 2, 0));
+                    style.slab.setBlock(block.getRelative(0, 2, 0));
                 }
             }
         }
@@ -1271,7 +1276,7 @@ final class Generator {
         final Tile foundation;
         final Tile roofStair, roofSlab, roofDoubleSlab;
         final Tile pillar, window;
-        final Tile stair, slab;
+        final Tile stair, slab, fence;
         final int baseLevel;
         final double randomWallChance;
         Tile floorAlt, ceilingAlt;
@@ -1287,7 +1292,7 @@ final class Generator {
                 roofSlab = Tile.OAK_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
                 floor = ceiling = Tile.OAK_PLANKS;
-                pillar = Tile.COBBLESTONE_WALL;
+                pillar = fence = Tile.COBBLESTONE_WALL;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.STONE_BRICK_SLAB;
                 stair = Tile.STONE_BRICK_STAIRS;
@@ -1305,7 +1310,7 @@ final class Generator {
                 roofSlab = Tile.JUNGLE_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_JUNGLE_WOOD_SLAB;
                 floor = ceiling = Tile.OAK_PLANKS;
-                pillar = Tile.BIRCH_FENCE;
+                pillar = fence = Tile.BIRCH_FENCE;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.SANDSTONE_SLAB;
                 stair = Tile.SANDSTONE_STAIRS;
@@ -1323,7 +1328,7 @@ final class Generator {
                 roofSlab = Tile.ACACIA_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_ACACIA_WOOD_SLAB;
                 floor = ceiling = Tile.DOUBLE_STONE_SLAB;
-                pillar = Tile.ACACIA_FENCE;
+                pillar = fence = Tile.ACACIA_FENCE;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.RED_SANDSTONE_SLAB;
                 stair = Tile.RED_SANDSTONE_STAIRS;
@@ -1339,7 +1344,7 @@ final class Generator {
                 roofSlab = Tile.QUARTZ_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_QUARTZ_SLAB;
                 floor = ceiling = Tile.DOUBLE_STONE_SLAB;
-                pillar = Tile.BIRCH_FENCE;
+                pillar = fence = Tile.BIRCH_FENCE;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.QUARTZ_SLAB;
                 stair = Tile.QUARTZ_STAIRS;
@@ -1355,7 +1360,7 @@ final class Generator {
                 roofSlab = Tile.SPRUCE_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_SPRUCE_WOOD_SLAB;
                 floor = ceiling = Tile.SPRUCE_PLANKS;
-                pillar = Tile.COBBLESTONE_WALL;
+                pillar = fence = Tile.COBBLESTONE_WALL;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.BRICK_SLAB;
                 stair = Tile.BRICK_STAIRS;
@@ -1371,7 +1376,7 @@ final class Generator {
                 roofSlab = Tile.SPRUCE_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_SPRUCE_WOOD_SLAB;
                 floor = ceiling = Tile.SPRUCE_PLANKS;
-                pillar = Tile.COBBLESTONE_WALL;
+                pillar = fence = Tile.COBBLESTONE_WALL;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.BRICK_SLAB;
                 stair = Tile.BRICK_STAIRS;
@@ -1388,7 +1393,7 @@ final class Generator {
                 roofStair = Tile.OAK_WOOD_STAIRS;
                 roofSlab = Tile.OAK_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
-                pillar = Tile.OAK_FENCE;
+                pillar = fence = Tile.OAK_FENCE;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.OAK_WOOD_SLAB;
                 stair = Tile.OAK_WOOD_STAIRS;
@@ -1405,7 +1410,7 @@ final class Generator {
                 roofStair = Tile.SPRUCE_WOOD_STAIRS;
                 roofSlab = Tile.SPRUCE_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_SPRUCE_WOOD_SLAB;
-                pillar = Tile.SPRUCE_FENCE;
+                pillar = fence = Tile.SPRUCE_FENCE;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.SPRUCE_WOOD_SLAB;
                 stair = Tile.SPRUCE_WOOD_STAIRS;
@@ -1422,7 +1427,7 @@ final class Generator {
                 roofStair = Tile.BIRCH_WOOD_STAIRS;
                 roofSlab = Tile.BIRCH_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_BIRCH_WOOD_SLAB;
-                pillar = Tile.BIRCH_FENCE;
+                pillar = fence = Tile.BIRCH_FENCE;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.BIRCH_WOOD_SLAB;
                 stair = Tile.BIRCH_WOOD_STAIRS;
@@ -1439,7 +1444,7 @@ final class Generator {
                 roofStair = Tile.JUNGLE_WOOD_STAIRS;
                 roofSlab = Tile.JUNGLE_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_JUNGLE_WOOD_SLAB;
-                pillar = Tile.JUNGLE_FENCE;
+                pillar = fence = Tile.JUNGLE_FENCE;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.JUNGLE_WOOD_SLAB;
                 stair = Tile.JUNGLE_WOOD_STAIRS;
@@ -1456,7 +1461,7 @@ final class Generator {
                 roofStair = Tile.ACACIA_WOOD_STAIRS;
                 roofSlab = Tile.ACACIA_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_ACACIA_WOOD_SLAB;
-                pillar = Tile.ACACIA_FENCE;
+                pillar = fence = Tile.ACACIA_FENCE;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.ACACIA_WOOD_SLAB;
                 stair = Tile.ACACIA_WOOD_STAIRS;
@@ -1473,7 +1478,7 @@ final class Generator {
                 roofStair = Tile.DARK_OAK_WOOD_STAIRS;
                 roofSlab = Tile.DARK_OAK_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_DARK_OAK_WOOD_SLAB;
-                pillar = Tile.DARK_OAK_FENCE;
+                pillar = fence = Tile.DARK_OAK_FENCE;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.DARK_OAK_WOOD_SLAB;
                 stair = Tile.DARK_OAK_WOOD_STAIRS;
@@ -1489,7 +1494,7 @@ final class Generator {
                 roofStair = Tile.SPRUCE_WOOD_STAIRS;
                 roofSlab = Tile.SPRUCE_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_SPRUCE_WOOD_SLAB;
-                pillar = Tile.COBBLESTONE_WALL;
+                pillar = fence = Tile.COBBLESTONE_WALL;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.STONE_BRICK_SLAB;
                 stair = Tile.STONE_BRICK_STAIRS;
@@ -1506,7 +1511,7 @@ final class Generator {
                 roofStair = Tile.SPRUCE_WOOD_STAIRS;
                 roofSlab = Tile.SPRUCE_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_SPRUCE_WOOD_SLAB;
-                pillar = Tile.COBBLESTONE_WALL;
+                pillar = fence = Tile.COBBLESTONE_WALL;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.STONE_BRICK_SLAB;
                 stair = Tile.STONE_BRICK_STAIRS;
@@ -1524,7 +1529,7 @@ final class Generator {
                 roofStair = Tile.OAK_WOOD_STAIRS;
                 roofSlab = Tile.OAK_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
-                pillar = Tile.COBBLESTONE_WALL;
+                pillar = fence = Tile.COBBLESTONE_WALL;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.STONE_BRICK_SLAB;
                 stair = Tile.STONE_BRICK_STAIRS;
@@ -1538,7 +1543,7 @@ final class Generator {
                 roofStair = Tile.OAK_WOOD_STAIRS;
                 roofSlab = Tile.OAK_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
-                pillar = Tile.COBBLESTONE_WALL;
+                pillar = fence = Tile.COBBLESTONE_WALL;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.COBBLESTONE_SLAB;
                 stair = Tile.COBBLESTONE_STAIRS;
@@ -1552,7 +1557,7 @@ final class Generator {
                 roofStair = Tile.OAK_WOOD_STAIRS;
                 roofSlab = Tile.OAK_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
-                pillar = Tile.COBBLESTONE_WALL;
+                pillar = fence = Tile.COBBLESTONE_WALL;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.COBBLESTONE_SLAB;
                 stair = Tile.COBBLESTONE_STAIRS;
@@ -1566,7 +1571,7 @@ final class Generator {
                 roofStair = Tile.OAK_WOOD_STAIRS;
                 roofSlab = Tile.OAK_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
-                pillar = Tile.COBBLESTONE_WALL;
+                pillar = fence = Tile.COBBLESTONE_WALL;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.COBBLESTONE_SLAB;
                 stair = Tile.COBBLESTONE_STAIRS;
@@ -1584,7 +1589,7 @@ final class Generator {
                 roofStair = Tile.PURPUR_STAIRS;
                 roofSlab = Tile.PURPUR_SLAB;
                 roofDoubleSlab = Tile.PURPUR_DOUBLE_SLAB;
-                pillar = Tile.COBBLESTONE_WALL;
+                pillar = fence = Tile.COBBLESTONE_WALL;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.PURPUR_SLAB;
                 stair = Tile.PURPUR_STAIRS;
@@ -1599,7 +1604,7 @@ final class Generator {
                 roofStair = Tile.NETHER_BRICK_STAIRS;
                 roofSlab = Tile.NETHER_BRICK_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_NETHER_BRICK_SLAB;
-                pillar = window = Tile.NETHER_BRICK_FENCE;
+                pillar = fence = window = Tile.NETHER_BRICK_FENCE;
                 slab = Tile.NETHER_BRICK_SLAB;
                 stair = Tile.NETHER_BRICK_STAIRS;
                 baseLevel = 1;
@@ -1618,7 +1623,7 @@ final class Generator {
                 roofSlab = Tile.OAK_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
                 floor = ceiling = Tile.OAK_PLANKS;
-                pillar = Tile.COBBLESTONE_WALL;
+                pillar = fence = Tile.COBBLESTONE_WALL;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.COBBLESTONE_SLAB;
                 stair = Tile.COBBLESTONE_STAIRS;

@@ -227,6 +227,7 @@ final class RPGWorld {
         final Map<UUID, Integer> progress = new HashMap<>();
         final int amount;
         int minReputation;
+        transient boolean unwrapped;
         transient Material material;
         transient EntityType entityType;
         transient int data;
@@ -272,6 +273,22 @@ final class RPGWorld {
             return result;
         }
 
+        void unwrap() {
+            if (unwrapped) return;
+            unwrapped = true;
+            try {
+                String value;
+                value = settings.get("material");
+                if (value != null) material = Material.valueOf(value.toUpperCase());
+                value = settings.get("entity_type");
+                if (value != null) entityType = EntityType.valueOf(value.toUpperCase());
+                value = settings.get("data");
+                if (value != null) data = Integer.parseInt(value);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
         int getProgress(Player player) {
             Integer result = progress.get(player.getUniqueId());
             if (result == null) return 0;
@@ -304,7 +321,7 @@ final class RPGWorld {
     }
 
     boolean tryToAddTown() {
-        Generator generator = new Generator();
+        Generator generator = new Generator(plugin);
         int size = 8 + generator.random.nextInt(8);
         Generator.Town gt = generator.tryToPlantTown(world, size);
         if (gt == null) {
@@ -339,7 +356,13 @@ final class RPGWorld {
         }
         flags.add(flagStyle);
         flags.add(Generator.Flag.SURFACE);
-        gt.townId = towns.size();
+        int townId = towns.size();
+        String townName = generateUniqueName(generator, 1 + generator.random.nextInt(2));
+        Town town = new Town(area, townName, fraction);
+        town.tags.addAll(flags.stream().map(f -> f.name().toLowerCase()).collect(Collectors.toList()));
+        gt.townId = townId;
+        gt.name = townName;
+        // Plant the town
         final String doTileDrops = "doTileDrops";
         String oldGameRuleValue = world.getGameRuleValue(doTileDrops);
         world.setGameRuleValue(doTileDrops, "false");
@@ -350,10 +373,7 @@ final class RPGWorld {
             e.printStackTrace();
         }
         world.setGameRuleValue(doTileDrops, oldGameRuleValue);
-        int townId = towns.size();
-        String townName = generateUniqueName(generator, 1 + generator.random.nextInt(2));
-        Town town = new Town(area, townName, fraction);
-        town.tags.addAll(flags.stream().map(f -> f.name().toLowerCase()).collect(Collectors.toList()));
+        // Fetch generation info
         for (Generator.House gh: gt.houses) {
             town.houses.add(new House("house", gh.boundingBox, gh.rooms.stream().map(r -> r.boundingBox).collect(Collectors.toList())));
         }
@@ -457,6 +477,14 @@ final class RPGWorld {
             } else {
                 tryToAddTown();
                 addTownCooldown = towns.size();
+            }
+        }
+        for (Player player: world.getPlayers()) {
+            Block block = player.getLocation().getBlock();
+            Belonging belonging = getBelongingAt(block);
+            if (belonging == null || belonging.town == null) continue;
+            if (belonging.lay == Belonging.Lay.CENTRAL) {
+                belonging.town.visit();
             }
         }
         if (ticks % 20 == 0 && dirty) save();

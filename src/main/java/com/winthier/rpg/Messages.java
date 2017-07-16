@@ -16,7 +16,8 @@ final class Messages {
 
     enum Type {
         RANDOM,
-        GREETING;
+        GREETING,
+        TOWN_SIGN;
     }
 
     class Message {

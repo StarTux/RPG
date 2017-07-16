@@ -26,10 +26,13 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.banner.Pattern;
 import org.bukkit.block.banner.PatternType;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.material.MaterialData;
 
 final class Generator {
+    final RPGPlugin plugin;
     final Random random = new Random(System.currentTimeMillis());
     final Set<Material> replaceMats = EnumSet.of(Material.LOG, Material.LOG_2, Material.LEAVES, Material.LEAVES_2, Material.PUMPKIN, Material.HUGE_MUSHROOM_1, Material.HUGE_MUSHROOM_2);
     final Map<Vec2, Block> highestBlocks = new HashMap<>();
@@ -45,6 +48,14 @@ final class Generator {
         for (Flag flag: flags) {
             uniqueFlags.put(flag.strategy, flag);
         }
+    }
+
+    Generator(RPGPlugin plugin) {
+        this.plugin = plugin;
+    }
+
+    Generator() {
+        this.plugin = null;
     }
 
     String generateName() {
@@ -197,6 +208,10 @@ final class Generator {
         int fountains = 1;
         int farms = 1 + random.nextInt(3);
         for (Vec2 chunk: town.chunks) {
+            Chunk bchunk = world.getChunkAt(chunk.x, chunk.y);
+            for (Entity e: bchunk.getEntities()) {
+                if (e instanceof LivingEntity && ((LivingEntity)e).getRemoveWhenFarAway()) e.remove();
+            }
             if (fountains > 0) {
                 fountains -= 1;
                 int size = 3 + random.nextInt(4);
@@ -871,6 +886,50 @@ final class Generator {
                 }
             }
         }
+        int signX, signY;
+        Facing facing;
+        if (random.nextBoolean()) {
+            signX = size / 2;
+            if (random.nextBoolean()) {
+                signY = -1;
+                facing = Facing.NORTH;
+            } else {
+                signY = size;
+                facing = Facing.SOUTH;
+            }
+        } else {
+            signY = size / 2;
+            if (random.nextBoolean()) {
+                signX = -1;
+                facing = Facing.WEST;
+            } else {
+                signX = size;
+                facing = Facing.EAST;
+            }
+        }
+        Block signBlock = offset.getRelative(signX, 1, signY);
+        if (signBlock.getType().isSolid()) {
+            signBlock = offset.getRelative(signX, height, signY);
+        }
+        Tile.of(Material.WALL_SIGN, facing.dataBlock).setBlockNoPhysics(signBlock);
+        org.bukkit.block.Sign sign = (org.bukkit.block.Sign)signBlock.getState();
+        String underscore;
+        switch (random.nextInt(9)) {
+        case 0: underscore = "============"; break;
+        case 1: underscore = "------------"; break;
+        case 2: underscore = "~~~~~~~~~~~~"; break;
+        case 3: underscore = "~-~-~-~-~-~-~"; break;
+        case 4: underscore = "////////////"; break;
+        case 5: underscore = "o-o-o-o-o-o-o"; break;
+        case 6: underscore = "! ! ! ! ! ! !"; break;
+        case 7: underscore = "- - - - - - -"; break;
+        default: underscore = ""; break;
+        }
+        sign.setLine(0, underscore);
+        if (plugin != null) sign.setLine(1, plugin.getMessages().deal(Messages.Type.TOWN_SIGN));
+        if (town != null) sign.setLine(2, town.name);
+        sign.setLine(3, underscore);
+        sign.update();
         if (town != null) {
             Cuboid bb = new Cuboid(offset.getX(), offset.getY() - 16, offset.getZ(),
                                    offset.getX() + size, offset.getY() + height, offset.getZ() + size);
@@ -968,7 +1027,7 @@ final class Generator {
         Map<Vec2, RoomTile> tiles = new HashMap<>();
         Map<Vec2, Room> roomMap = new HashMap<>();
         Map<Room, Set<Room>> roomConnections = new HashMap<>();
-        List<Room> rooms = splitRoom(new Room(0, 0, width, height));
+        List<Room> rooms = splitRoom(new Room(0, 0, width - 1, height - 1));
         // Remove rooms
         if (rooms.size() > 2) {
             List<Room> removableRooms = rooms.stream().filter(r -> r.ax == 0 || r.ay == 0 || r.bx == width || r.by == height).collect(Collectors.toList());
@@ -1190,6 +1249,7 @@ final class Generator {
         final List<House> houses = new ArrayList<>();
         final List<Structure> structures = new ArrayList<>();
         int townId;
+        String name;
     }
 
     @RequiredArgsConstructor
@@ -1232,8 +1292,8 @@ final class Generator {
         ANDESITE(Strategy.STYLE),
         DIORITE(Strategy.STYLE),
         GRANITE(Strategy.STYLE),
-        QUARTZ(Strategy.STYLE, true),
-        PURPUR(Strategy.STYLE, true),
+        QUARTZ(Strategy.STYLE),
+        PURPUR(Strategy.STYLE),
         NETHER(Strategy.STYLE, true),
 
         NO_ROOF(Strategy.RANDOM),

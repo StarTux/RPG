@@ -63,3 +63,19 @@ greeting:
 - You have found your way to the town of %town_name%.
 - '%town_name% is steadily growing.'
 - Welcome to %town_name%™.
+town_sign:
+- Welcome to
+- Dedicated to
+- The people of
+- YOU ARE HERE
+- This is
+- You are in
+- City of
+- Town of
+- Village of
+- No dogs
+- Dogs allowed
+- No littering
+- Behave in
+- Lovely
+

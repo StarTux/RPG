@@ -101,7 +101,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
                 }
             }
         } else if (cmd.equals("gen") && args.length >= 3) {
-            Generator generator = new Generator();
+            Generator generator = new Generator(this);
             Set<Generator.Flag> flags = EnumSet.noneOf(Generator.Flag.class);
             int size = Integer.parseInt(args[2]);
             for (int i = 3; i < args.length; i += 1) {

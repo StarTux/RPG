@@ -15,7 +15,11 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
+import org.bukkit.SoundCategory;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
@@ -26,6 +30,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockDamageEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -188,44 +193,53 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockBreak(BlockBreakEvent event) {
-        Player player = event.getPlayer();
         Block block = event.getBlock();
         RPGWorld rpgWorld = getRPGWorld(block.getWorld());
         if (rpgWorld == null) return;
-        int x = block.getX();
-        int y = block.getY();
-        int z = block.getZ();
-        boolean belongsToTown = false;
-        for (RPGWorld.Town town: rpgWorld.towns) {
-            if (town.area.contains(x, z)) {
-                town.visit();
-                for (RPGWorld.House house: town.houses) {
-                    for (Cuboid bb: house.rooms) {
-                        if (bb.contains(x, y, z)) {
-                            belongsToTown = true;
-                        }
-                    }
-                }
-                if (belongsToTown) {
-                    getReputations().giveRepurtation(player, town.fraction, -1);
-                    break;
-                }
-            }
-        }
+        RPGWorld.Belonging belonging = rpgWorld.getBelongingAt(block);
+        if (belonging == null || belonging.town == null) return;
+        belonging.town.visit();
+        Player player = event.getPlayer();
         if (!allowedGameModes.contains(player.getGameMode())) return;
-        Material mat = block.getType();
-        if (belongsToTown && mat.isSolid()) {
-            PotionEffect potion = player.getPotionEffect(PotionEffectType.SLOW_DIGGING);
-            int level;
-            int duration;
-            if (potion != null) {
-                level = potion.getAmplifier() + 1;
-                duration = Math.max(200, potion.getDuration());
-            } else {
-                level = 0;
-                duration = 200;
-            }
-            player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_DIGGING, duration, level), true);
+        if (belonging.rooms.isEmpty()) return;
+        getReputations().giveRepurtation(player, belonging.town.fraction, -1);
+        PotionEffect potion = player.getPotionEffect(PotionEffectType.SLOW_DIGGING);
+        int level;
+        int duration;
+        if (potion != null) {
+            level = Math.max(1, potion.getAmplifier());
+            duration = Math.max(200, potion.getDuration());
+        } else {
+            level = 1;
+            duration = 200;
         }
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_DIGGING, duration, level), true);
+        Location loc = block.getLocation().add(0.5, 0.5, 0.5);
+        player.spawnParticle(Particle.VILLAGER_ANGRY, loc, 3, .2, .2, .2, 0.0);
+        player.playSound(loc, Sound.ENTITY_VILLAGER_HURT, 0.1f, 0.1f);
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onBlockDamage(BlockDamageEvent event) {
+        Block block = event.getBlock();
+        RPGWorld rpgWorld = getRPGWorld(block.getWorld());
+        if (rpgWorld == null) return;
+        RPGWorld.Belonging belonging = rpgWorld.getBelongingAt(block);
+        if (belonging == null || belonging.town == null) return;
+        belonging.town.visit();
+        Player player = event.getPlayer();
+        if (!allowedGameModes.contains(player.getGameMode())) return;
+        if (belonging.rooms.isEmpty()) return;
+        PotionEffect potion = player.getPotionEffect(PotionEffectType.SLOW_DIGGING);
+        int level;
+        int duration;
+        if (potion != null) {
+            level = potion.getAmplifier();
+            duration = Math.max(100, potion.getDuration());
+        } else {
+            level = 0;
+            duration = 100;
+        }
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_DIGGING, duration, level), true);
     }
 }

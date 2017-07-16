@@ -538,4 +538,41 @@ final class RPGWorld {
         } while (result == null);
         return result;
     }
+
+    static class Belonging {
+        enum Lay {
+            OUTSKIRTS, CENTRAL;
+        }
+        Town town;
+        Lay lay;
+        House house;
+        final List<Cuboid> rooms = new ArrayList<>();
+    }
+
+    Belonging getBelongingAt(Block block) {
+        int x = block.getX();
+        int y = block.getY();
+        int z = block.getZ();
+        for (Town town: towns) {
+            if (!town.questArea.contains(x, z)) continue;
+            Belonging result = new Belonging();
+            result.town = town;
+            if (town.area.contains(x, z)) {
+                result.lay = Belonging.Lay.CENTRAL;
+                for (House house: town.houses) {
+                    if (house.boundingBox.contains(x, y, z)) {
+                        result.house = house;
+                        for (Cuboid bb: house.rooms) {
+                            if (bb.contains(x, y, z)) result.rooms.add(bb);
+                        }
+                        break;
+                    }
+                }
+            } else {
+                result.lay = Belonging.Lay.OUTSKIRTS;
+            }
+            return result;
+        }
+        return null;
+    }
 }

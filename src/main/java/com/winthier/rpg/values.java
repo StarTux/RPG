@@ -11,8 +11,13 @@ import lombok.Value;
 @Value
 final class Vec2 {
     public final int x, y;
+
     Vec2 relative(int x, int y) {
         return new Vec2(this.x + x, this.y + y);
+    }
+
+    Vec2 relative(Vec2 o) {
+        return new Vec2(this.x + o.x, this.y + o.y);
     }
 }
 
@@ -97,16 +102,36 @@ enum Orientation {
 }
 
 enum Facing {
-    NORTH(4, 2, 2),
-    SOUTH(3, 3, 3),
-    WEST(2, 4, 0),
-    EAST(1, 5, 1);
+    NORTH(new Vec2(0, -1), 4, 2, 2, 2),
+    SOUTH(new Vec2(0, 1), 3, 3, 3, 0),
+    WEST(new Vec2(-1, 0), 2, 4, 0, 1),
+    EAST(new Vec2(1, 0), 1, 5, 1, 3);
+    public final Vec2 vector;
     public final int dataTorch;
     public final int dataBlock;
     public final int dataStair;
-    Facing(int dataTorch, int dataBlock, int dataStair) {
+    public final int dataBed;
+    Facing rotate() {
+        switch (this) {
+        case NORTH: return EAST;
+        case EAST: return SOUTH;
+        case SOUTH: return WEST;
+        case WEST: default: return NORTH;
+        }
+    }
+    Facing opposite() {
+        switch (this) {
+        case NORTH: return SOUTH;
+        case EAST: return WEST;
+        case SOUTH: return NORTH;
+        case WEST: default: return EAST;
+        }
+    }
+    Facing(Vec2 vector, int dataTorch, int dataBlock, int dataStair, int dataBed) {
+        this.vector = vector;
         this.dataTorch = dataTorch;
         this.dataBlock = dataBlock;
         this.dataStair = dataStair;
+        this.dataBed = dataBed;
     }
 }

@@ -322,7 +322,9 @@ final class RPGWorld {
             if (questArea.contains(loc.getBlockX(), loc.getBlockZ())) return false;
         }
         List<Fraction> fractions = new ArrayList<>();
-        for (Fraction fraction: Fraction.values()) if (!fraction.rare) fractions.add(fraction);
+        for (Fraction fraction: Fraction.values()) {
+            for (int i = 0; i < fraction.chance; i += 1) fractions.add(fraction);
+        }
         Fraction fraction = fractions.get(generator.random.nextInt(fractions.size()));
         Set<Generator.Flag> flags = EnumSet.noneOf(Generator.Flag.class);
         Generator.Flag flagStyle;
@@ -497,20 +499,20 @@ final class RPGWorld {
     }
 
     enum Fraction {
-        VILLAGER(false, Arrays.asList(EntityType.VILLAGER), ChatColor.GREEN),
-        ZOMBIE_VILLAGER(false, Arrays.asList(EntityType.ZOMBIE_VILLAGER), ChatColor.DARK_GREEN),
-        SKELETON(false, Arrays.asList(EntityType.SKELETON, EntityType.STRAY), ChatColor.WHITE),
-        ZOMBIE(false, Arrays.asList(EntityType.ZOMBIE, EntityType.HUSK, EntityType.ZOMBIE_VILLAGER), ChatColor.DARK_GREEN),
-        OCCULT(false, Arrays.asList(EntityType.WITCH, EntityType.EVOKER, EntityType.VINDICATOR), ChatColor.LIGHT_PURPLE),
-        NETHER(false, Arrays.asList(EntityType.PIG_ZOMBIE, EntityType.BLAZE, EntityType.WITHER_SKELETON), ChatColor.RED),
-        CREEPER(true, Arrays.asList(EntityType.CREEPER), ChatColor.DARK_GREEN);
+        VILLAGER(10, Arrays.asList(EntityType.VILLAGER), ChatColor.GREEN),
+        ZOMBIE_VILLAGER(5, Arrays.asList(EntityType.ZOMBIE_VILLAGER), ChatColor.DARK_GREEN),
+        SKELETON(5, Arrays.asList(EntityType.SKELETON, EntityType.STRAY), ChatColor.WHITE),
+        ZOMBIE(5, Arrays.asList(EntityType.ZOMBIE, EntityType.HUSK, EntityType.ZOMBIE_VILLAGER), ChatColor.DARK_GREEN),
+        OCCULT(3, Arrays.asList(EntityType.WITCH, EntityType.EVOKER, EntityType.VINDICATOR), ChatColor.LIGHT_PURPLE),
+        NETHER(1, Arrays.asList(EntityType.PIG_ZOMBIE, EntityType.BLAZE, EntityType.WITHER_SKELETON), ChatColor.RED),
+        CREEPER(0, Arrays.asList(EntityType.CREEPER), ChatColor.DARK_GREEN);
 
-        public final boolean rare;
+        public final int chance;
         public final List<EntityType> villagerTypes;
         public final ChatColor color;
 
-        Fraction(boolean rare, List<EntityType> villagerTypes, ChatColor color) {
-            this.rare = rare;
+        Fraction(int chance, List<EntityType> villagerTypes, ChatColor color) {
+            this.chance = chance;
             this.villagerTypes = villagerTypes;
             this.color = color;
         }

@@ -635,7 +635,7 @@ final class Generator {
                         case 18:
                             floor.getRelative(0, 2, 0).setTypeIdAndData(Material.WALL_BANNER.getId(), (byte)facing.dataBlock, true);
                             org.bukkit.block.Banner banner = (org.bukkit.block.Banner)floor.getRelative(0, 2, 0).getState();
-                            banner.setBaseColor(DyeColor.values()[random.nextInt(DyeColor.values().length)]);
+                            banner.setBaseColor(DyeColor.values()[color]);
                             int patternCount = 1 + random.nextInt(4);
                             List<Pattern> patterns = new ArrayList<>(patternCount);
                             for (int j = 0; j < patternCount; j += 1) {

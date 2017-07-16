@@ -200,8 +200,8 @@ final class Generator {
                 plantFountain(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), size);
             } else if (farms > 0) {
                 farms -= 1;
-                int width = 7 + random.nextInt(4) * 2;
-                int height = 7 + random.nextInt(4) * 2;
+                int width = 7 + random.nextInt(3) * 2;
+                int height = 7 + random.nextInt(3) * 2;
                 int offx = random.nextInt(14 - width);
                 int offy = random.nextInt(14 - height);
                 plantFarm(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), width, height);
@@ -717,6 +717,7 @@ final class Generator {
         Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
         Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), 0);
         int height = 4 + random.nextInt(3);
+        boolean nether = uniqueFlags.get(Flag.Strategy.STYLE) == Flag.NETHER;
         for (int z = 0; z < size; z += 1) {
             for (int x = 0; x < size; x += 1) {
                 boolean outerX, outerZ, isWall, isCorner;
@@ -759,7 +760,11 @@ final class Generator {
                         if (i < 2) {
                             blockWater.setType(Material.AIR);
                         } else {
-                            blockWater.setType(Material.STATIONARY_WATER);
+                            if (nether) {
+                                blockWater.setType(Material.STATIONARY_LAVA);
+                            } else {
+                                blockWater.setType(Material.STATIONARY_WATER);
+                            }
                         }
                     }
                 }
@@ -784,12 +789,19 @@ final class Generator {
         int floorLevel = highest.get(highest.size() / 2);
         Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
         Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), 0);
-        Tile fruit;
-        switch (random.nextInt(5)) {
-        case 0: fruit = Tile.of(Material.BEETROOT_BLOCK); break;
-        case 1: fruit = Tile.of(Material.CARROT); break;
-        case 2: fruit = Tile.of(Material.POTATO); break;
-        case 3: default: fruit = Tile.of(Material.CROPS);
+        boolean nether = uniqueFlags.get(Flag.Strategy.STYLE) == Flag.NETHER;
+        Tile fruit, soil;
+        if (nether) {
+            fruit = Tile.of(Material.NETHER_WARTS, 3);
+            soil = Tile.of(Material.SOUL_SAND);
+        } else {
+            switch (random.nextInt(5)) {
+            case 0: fruit = Tile.of(Material.BEETROOT_BLOCK, 3); break;
+            case 1: fruit = Tile.of(Material.CARROT, 7); break;
+            case 2: fruit = Tile.of(Material.POTATO, 7); break;
+            case 3: default: fruit = Tile.of(Material.CROPS, 7);
+            }
+            soil = Tile.of(Material.SOIL, 7);
         }
         int cx = width / 2;
         int cy = height / 2;
@@ -802,6 +814,7 @@ final class Generator {
                 Orientation ori = outerX ? Orientation.VERTICAL : Orientation.HORIZONTAL;
                 isWall = !isCorner && (outerX || outerZ);
                 Tile tile, tileBelow, tileAbove;
+                boolean isCenter = false;
                 if (isCorner) {
                     tile = style.cornerTop.orient(ori);
                     tileBelow = style.corner;
@@ -814,12 +827,13 @@ final class Generator {
                     } else {
                         tileAbove = Tile.AIR;
                     }
-                } else if (x == cx && z == cy) {
+                } else if (x == cx && z == cy && !nether) {
                     tile = Tile.of(Material.STATIONARY_WATER);
                     tileBelow = style.foundation;
                     tileAbove = Tile.of(Material.GLOWSTONE);
+                    isCenter = true;
                 } else {
-                    tile = Tile.of(Material.SOIL, 0x7);
+                    tile = soil;
                     tileBelow = style.foundation;
                     tileAbove = fruit;
                 }
@@ -837,6 +851,9 @@ final class Generator {
                 }
                 tile.setBlockNoPhysics(block);
                 tileAbove.setBlockNoPhysics(block.getRelative(0, 1, 0));
+                if (isCenter) {
+                    style.roofSlab.setBlock(block.getRelative(0, 2, 0));
+                }
             }
         }
         if (town != null) {

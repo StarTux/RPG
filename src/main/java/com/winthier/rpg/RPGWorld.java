@@ -321,12 +321,20 @@ final class RPGWorld {
             Location loc = player.getLocation();
             if (questArea.contains(loc.getBlockX(), loc.getBlockZ())) return false;
         }
+        List<Fraction> fractions = new ArrayList<>();
+        for (Fraction fraction: Fraction.values()) if (!fraction.rare) fractions.add(fraction);
+        Fraction fraction = fractions.get(generator.random.nextInt(fractions.size()));
         Set<Generator.Flag> flags = EnumSet.noneOf(Generator.Flag.class);
-        List<Generator.Flag> styleFlags = new ArrayList<>();
-        for (Generator.Flag flag: Generator.Flag.values()) {
-            if (flag.strategy == Generator.Flag.Strategy.STYLE && !flag.rare) styleFlags.add(flag);
+        Generator.Flag flagStyle;
+        if (fraction == Fraction.NETHER) {
+            flagStyle = Generator.Flag.NETHER;
+        } else {
+            List<Generator.Flag> styleFlags = new ArrayList<>();
+            for (Generator.Flag flag: Generator.Flag.values()) {
+                if (flag.strategy == Generator.Flag.Strategy.STYLE && !flag.rare) styleFlags.add(flag);
+            }
+            flagStyle = styleFlags.get(generator.random.nextInt(styleFlags.size()));
         }
-        Generator.Flag flagStyle = styleFlags.get(generator.random.nextInt(styleFlags.size()));
         flags.add(flagStyle);
         flags.add(Generator.Flag.SURFACE);
         gt.townId = towns.size();
@@ -340,9 +348,6 @@ final class RPGWorld {
             e.printStackTrace();
         }
         world.setGameRuleValue(doTileDrops, oldGameRuleValue);
-        List<Fraction> fractions = new ArrayList<>();
-        for (Fraction fraction: Fraction.values()) if (!fraction.rare) fractions.add(fraction);
-        Fraction fraction = fractions.get(generator.random.nextInt(fractions.size()));
         int townId = towns.size();
         String townName = generateUniqueName(generator, 1 + generator.random.nextInt(2));
         Town town = new Town(area, townName, fraction);
@@ -401,37 +406,41 @@ final class RPGWorld {
         // NPCs
         int npc_greetings = 1;
         int npc_quests = town.quests.size();
+        List<Vec3> vecs = new ArrayList<>();
         for (Generator.House house: gt.houses) {
             for (Vec3 vec: house.npcs) {
-                int npcId = town.npcs.size();
-                NPC npc = new NPC(vec);
-                npc.name = generateUniqueName(generator, 1 + generator.random.nextInt(2));
-                String message;
-                if (npc_quests > 0) {
-                    npc_quests -= 1;
-                    npc.questId = npc_quests;
-                    message = plugin.getMessages().deal(Messages.Type.RANDOM);
-                } else if (npc_greetings > 0) {
-                    npc_greetings -= 1;
-                    message = plugin.getMessages().deal(Messages.Type.GREETING);
-                    message = message.replace("%town_name%", town.name);
-                } else {
-                    message = plugin.getMessages().deal(Messages.Type.RANDOM);
-                }
-                message = message.replace("%npc_name%", npc.name);
-                npc.message = message;
-                town.npcs.add(npc);
-                EntityType et = fraction.villagerTypes.get(generator.random.nextInt(fraction.villagerTypes.size()));
-                Location loc = world.getBlockAt(vec.x, vec.y, vec.z).getLocation().add(0.5, 0.0, 0.5);
-                LivingEntity living = (LivingEntity)world.spawnEntity(loc, et);
-                living.setAI(false);
-                living.setRemoveWhenFarAway(false);
-                NPCEntity.Watcher watcher = (NPCEntity.Watcher)CustomPlugin.getInstance().getEntityManager().wrapEntity(living, NPCEntity.CUSTOM_ID);
-                watcher.setIds(townId, npcId);
-                watcher.save();
+                vecs.add(vec);
             }
         }
-        Collections.shuffle(town.npcs, generator.random);
+        Collections.shuffle(vecs, generator.random);
+        for (Vec3 vec: vecs) {
+            int npcId = town.npcs.size();
+            NPC npc = new NPC(vec);
+            npc.name = generateUniqueName(generator, 1 + generator.random.nextInt(2));
+            String message;
+            if (npc_quests > 0) {
+                npc_quests -= 1;
+                npc.questId = npc_quests;
+                message = plugin.getMessages().deal(Messages.Type.RANDOM);
+            } else if (npc_greetings > 0) {
+                npc_greetings -= 1;
+                message = plugin.getMessages().deal(Messages.Type.GREETING);
+                message = message.replace("%town_name%", town.name);
+            } else {
+                message = plugin.getMessages().deal(Messages.Type.RANDOM);
+            }
+            message = message.replace("%npc_name%", npc.name);
+            npc.message = message;
+            town.npcs.add(npc);
+            EntityType et = fraction.villagerTypes.get(generator.random.nextInt(fraction.villagerTypes.size()));
+            Location loc = world.getBlockAt(vec.x, vec.y, vec.z).getLocation().add(0.5, 0.0, 0.5);
+            LivingEntity living = (LivingEntity)world.spawnEntity(loc, et);
+            living.setAI(false);
+            living.setRemoveWhenFarAway(false);
+            NPCEntity.Watcher watcher = (NPCEntity.Watcher)CustomPlugin.getInstance().getEntityManager().wrapEntity(living, NPCEntity.CUSTOM_ID);
+            watcher.setIds(townId, npcId);
+            watcher.save();
+        }
         towns.add(town);
         save();
         plugin.getLogger().info("Town " + town.name + "(" + flagStyle.name().toLowerCase() + "," + fraction.name().toLowerCase() + ") created at " + gt.ax + " " + gt.ay);

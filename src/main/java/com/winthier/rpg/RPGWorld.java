@@ -1,6 +1,7 @@
 package com.winthier.rpg;
 
 import com.winthier.custom.CustomPlugin;
+import com.winthier.custom.util.Dirty.TagWrapper;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -9,6 +10,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +30,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BookMeta;
 
 @Getter
 final class RPGWorld {
@@ -37,10 +41,12 @@ final class RPGWorld {
     boolean dirty = false;
     int addTownCooldown = 0;
     int ticks;
+    long timestamp;
 
     RPGWorld(RPGPlugin plugin, World world) {
         this.plugin = plugin;
         this.world = world;
+        this.timestamp = System.currentTimeMillis();
     }
 
     void load() {
@@ -49,12 +55,14 @@ final class RPGWorld {
             ConfigurationSection section = config.createSection("tmp", map);
             towns.add(new Town(section));
         }
+        timestamp = config.getLong("timestamp", timestamp);
     }
 
     void save() {
         dirty = false;
         YamlConfiguration config = new YamlConfiguration();
         config.set("towns", towns.stream().map(t -> t.serialize()).collect(Collectors.toList()));
+        config.set("timestamp", timestamp);
         try {
             config.save(new File(world.getWorldFolder(), "winthier.rpg.yml"));
         } catch (IOException ioe) {
@@ -209,10 +217,10 @@ final class RPGWorld {
 
         Map<String, Object> serialize() {
             Map<String, Object> result = new LinkedHashMap<>();
-            result.put("home", home.serialize());
-            result.put("message", message);
             result.put("name", name);
+            result.put("home", home.serialize());
             result.put("quest_id", questId);
+            result.put("message", message);
             return result;
         }
     }
@@ -459,6 +467,7 @@ final class RPGWorld {
             LivingEntity living = (LivingEntity)world.spawnEntity(loc, et);
             living.setAI(false);
             living.setRemoveWhenFarAway(false);
+            living.setCustomName(fraction.color + npc.name);
             NPCEntity.Watcher watcher = (NPCEntity.Watcher)CustomPlugin.getInstance().getEntityManager().wrapEntity(living, NPCEntity.CUSTOM_ID);
             watcher.setIds(townId, npcId);
             watcher.save();
@@ -490,10 +499,15 @@ final class RPGWorld {
         if (ticks % 20 == 0 && dirty) save();
     }
 
+    Town findTown(int townId) {
+        if (townId < 0 || townId >= towns.size()) return null;
+        return towns.get(townId);
+    }
+
     NPC findNPC(int townId, int npcId) {
-        if (townId >= towns.size()) return null;
+        if (townId < 0 || townId >= towns.size()) return null;
         Town town = towns.get(townId);
-        if (npcId >= town.npcs.size()) return null;
+        if (npcId < 0 || npcId >= town.npcs.size()) return null;
         return town.npcs.get(npcId);
     }
 
@@ -602,5 +616,77 @@ final class RPGWorld {
             return result;
         }
         return null;
+    }
+
+    Vec2 updateDeliveryItem(ItemStack item, Player player) {
+        TagWrapper config = TagWrapper.getItemConfigOf(item);
+        NPC senderNPC = null;
+        Vec2 senderVec = null;
+        if (config.isSet("npc_id") && config.isSet("town_id")) {
+            senderVec = new Vec2(config.getInt("town_id"), config.getInt("npc_id"));
+            senderNPC = findNPC(senderVec.x, senderVec.y);
+        }
+        String senderName;
+        if (senderNPC == null) {
+            senderName = "The Post Office";
+        } else {
+            senderName = senderNPC.name;
+        }
+        Set<Vec2> usedNPCs = new HashSet<>();
+        List<Integer> newUsed = new ArrayList<>();
+        for (Iterator<Integer> iter = config.getIntList("used").iterator(); iter.hasNext();) {
+            int x = iter.next();
+            if (iter.hasNext()) {
+                int y = iter.next();
+                usedNPCs.add(new Vec2(x, y));
+                newUsed.add(x);
+                newUsed.add(y);
+            }
+        }
+        if (senderVec != null) {
+            usedNPCs.add(senderVec);
+            newUsed.add(senderVec.x);
+            newUsed.add(senderVec.y);
+        }
+        List<Vec2> npcs = new ArrayList<>();
+        for (int i = 0; i < towns.size(); i += 1) {
+            if (senderVec != null && senderVec.x == i) continue;
+            int townc = towns.get(i).npcs.size();
+            for (int j = 0; j < townc; j += 1) {
+                Vec2 vec = new Vec2(i, j);
+                if (!usedNPCs.contains(vec)) npcs.add(vec);
+            }
+        }
+        if (npcs.isEmpty()) {
+            return null;
+        }
+        Vec2 recipientVec = npcs.get(plugin.getRandom().nextInt(npcs.size()));
+        int townId = recipientVec.x;
+        Town town = towns.get(townId);
+        int npcId = recipientVec.y;
+        NPC npc = town.npcs.get(npcId);
+        config.setIntList("used", newUsed);
+        config.setString("owner", player.getUniqueId().toString());
+        config.setLong("world_timestamp", timestamp);
+        config.setInt("town_id", townId);
+        config.setInt("npc_id", npcId);
+        BookMeta meta = (BookMeta)item.getItemMeta();
+        meta.setTitle("Deliver to " + npc.name + " in " + town.name + ".");
+        meta.setPages("Dear "
+                      + player.getName() + ",\nplease "
+                      + plugin.getMessages().deal(Messages.Type.SYNONYM_DELIVER) + " this "
+                      + plugin.getMessages().deal(Messages.Type.SYNONYM_DELIVERY) + " to my "
+                      + plugin.getMessages().deal(Messages.Type.DISTANT_RELATIONSHIP) + " "
+                      + npc.name + " who "
+                      + plugin.getMessages().deal(Messages.Type.SYNONYM_LIVES_IN) + " "
+                      + plugin.getMessages().deal(Messages.Type.SYNONYM_A_PLACE_CALLED) + " "
+                      + town.name + ".\n\n"
+                      + plugin.getMessages().deal(Messages.Type.SYNONYM_SINCERELY) + ", "
+                      + senderName + ".",
+                      "If you do not know where to find " + npc.name + ", check your Mini Map and follow the white dots.");
+        meta.setAuthor(senderName);
+        meta.setGeneration(BookMeta.Generation.ORIGINAL);
+        item.setItemMeta(meta);
+        return recipientVec;
     }
 }

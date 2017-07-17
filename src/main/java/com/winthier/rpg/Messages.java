@@ -17,7 +17,14 @@ final class Messages {
     enum Type {
         RANDOM,
         GREETING,
-        TOWN_SIGN;
+        TOWN_SIGN,
+        DISTANT_RELATIONSHIP,
+        SYNONYM_DELIVER,
+        SYNONYM_DELIVERY,
+        SYNONYM_LIVES_IN,
+        SYNONYM_A_PLACE_CALLED,
+        SYNONYM_SINCERELY,
+        DELIVERY_THANKS;
     }
 
     class Message {
@@ -40,6 +47,7 @@ final class Messages {
         for (Type type: Type.values()) {
             Message message = new Message();
             message.messages.addAll(config.getStringList(type.name().toLowerCase()));
+            if (message.messages.isEmpty()) plugin.getLogger().warning("Message list empty: " + type);
             Collections.shuffle(message.messages);
             messages.put(type, message);
         }

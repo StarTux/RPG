@@ -79,4 +79,11 @@ town_sign:
 - No littering
 - Behave in
 - Lovely
-
+distant_relationship: [friend, sibling, colleague, partner, associate, old friend, acquaintance, beloved friend, business partner]
+synonym_deliver: [deliver, bring, show, carry, submit]
+synonym_delivery: [letter, delivery, package, message, note, report, gift, communication, missive, bulletin]
+synonym_lives_in: [lives in, moved to, resides in, leads a humble life in, sought refuge in, tries to make a living in, is enjoying life in, now lives in, can be found in]
+synonym_a_place_called: [a town named, a place called, a village by the name of, some place they call]
+synonym_sincerely: [Sincerely, Thanks in advance, Cheers, Faithfully, Regards, Respectfully, Best, Looking Forward, Thanks, Hugs, Best wishes, See you around, Yours truly, Love, Kisses]
+delivery_thanks:
+- You got something... ... for me? ... ... why thank you, friend! My people will not forget this. Could you do me a favor and run another delivery to a friend of mine?

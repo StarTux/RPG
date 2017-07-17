@@ -85,10 +85,14 @@ public final class NPCSpeechEntity implements CustomEntity, TickableEntity {
         private ChatColor color = ChatColor.WHITE;
         private int oldshown = 0;
         private boolean teleported = false;
+        private boolean quit = false;
 
         void onTick() {
-            if (master != null) {
-                if (master.entity == null || !master.entity.isValid()) {
+            if (quit) {
+                remove();
+                return;
+            } else if (master != null) {
+                if (master.quit || master.entity == null || !master.entity.isValid()) {
                     remove();
                     return;
                 }
@@ -100,9 +104,9 @@ public final class NPCSpeechEntity implements CustomEntity, TickableEntity {
                     return;
                 }
                 if (living.getCustomName() == null) {
-                    entity.teleport(living.getEyeLocation().add(0, 0.15, 0));
-                } else {
                     entity.teleport(living.getEyeLocation().add(0, 0.3, 0));
+                } else {
+                    entity.teleport(living.getEyeLocation().add(0, 0.6, 0));
                 }
                 if (!teleported) {
                     teleported = true;
@@ -122,8 +126,8 @@ public final class NPCSpeechEntity implements CustomEntity, TickableEntity {
                         }
                     } else {
                         messages.remove(0);
-                        this.master = (NPCSpeechEntity.Watcher)CustomPlugin.getInstance().getEntityManager().spawnEntity(entity.getLocation().add(0, 10, 0), NPCSpeechEntity.CUSTOM_ID);
-                        master.setLiving(living);
+                        this.master = (NPCSpeechEntity.Watcher)CustomPlugin.getInstance().getEntityManager().spawnEntity(entity.getLocation().add(0, 5, 0), NPCSpeechEntity.CUSTOM_ID);
+                        master.setLiving(this.living);
                         master.setMessages(messages);
                         master.setColor(color);
                         this.living = null;

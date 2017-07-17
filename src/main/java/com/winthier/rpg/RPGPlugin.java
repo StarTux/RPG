@@ -1,6 +1,9 @@
 package com.winthier.rpg;
 
+import com.winthier.custom.CustomPlugin;
 import com.winthier.custom.event.CustomRegisterEvent;
+import com.winthier.custom.event.CustomTickEvent;
+import com.winthier.custom.util.Items;
 import com.winthier.rpg.Generator.House;
 import com.winthier.rpg.Generator.Town;
 import java.util.ArrayList;
@@ -31,6 +34,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDamageEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -65,10 +69,25 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         reputations = null;
         event.addEntity(new NPCEntity(this));
         event.addEntity(new NPCSpeechEntity(this));
+        event.addItem(new DeliveryItem(this));
         worldName = getConfig().getString("worlds", "Resource");
         createTowns = getConfig().getBoolean("create_towns");
         if (world != null && world.isDirty()) world.save();
         world = null;
+    }
+
+    @EventHandler
+    public void onCustomTick(CustomTickEvent event) {
+        switch (event.getType()) {
+        case WILL_TICK_ITEMS:
+            if (event.getTicks() % 20 == 0) {
+                for (Player player: getServer().getOnlinePlayers()) {
+                    player.removeMetadata("MiniMapCursors", this);
+                }
+            }
+            break;
+        default: break;
+        }
     }
 
     @Override
@@ -101,6 +120,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
                 }
             }
         } else if (cmd.equals("gen") && args.length >= 3) {
+            if (player == null || getRPGWorld(player.getWorld()) == null) return false;
             Generator generator = new Generator(this);
             Set<Generator.Flag> flags = EnumSet.noneOf(Generator.Flag.class);
             int size = Integer.parseInt(args[2]);
@@ -134,6 +154,17 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
             } else {
                 sender.sendMessage("Unknown structure: '" + structure + "'");
             }
+        } else if (cmd.equals("givedelivery") && args.length == 2) {
+            if (getRPGWorld() == null) return false;
+            Player target = getServer().getPlayerExact(args[1]);
+            if (target == null) {
+                sender.sendMessage("Player not found: " + args[1]);
+                return true;
+            }
+            ItemStack item = CustomPlugin.getInstance().getItemManager().spawnItemStack(DeliveryItem.CUSTOM_ID, 1);
+            world.updateDeliveryItem(item, target);
+            Items.give(item, target);
+            sender.sendMessage("Delivery book given to " + target.getName());
         } else {
             return false;
         }

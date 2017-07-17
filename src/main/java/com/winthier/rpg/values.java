@@ -8,9 +8,18 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 
-@Value
+@Value @RequiredArgsConstructor
 final class Vec2 {
     public final int x, y;
+
+    Vec2(List<Integer> list) {
+        x = list.get(0);
+        y = list.get(1);
+    }
+
+    List<Integer> serialize() {
+        return Arrays.asList(x, y);
+    }
 
     Vec2 relative(int x, int y) {
         return new Vec2(this.x + x, this.y + y);

@@ -63,7 +63,7 @@ final class Tile {
         }
     }
 
-    Tile face(Facing facing) {
+    Tile facing(Facing facing) {
         switch (mat) {
         case BED:
         case FENCE_GATE:
@@ -72,7 +72,20 @@ final class Tile {
         case JUNGLE_FENCE_GATE:
         case ACACIA_FENCE_GATE:
         case DARK_OAK_FENCE_GATE:
-            return of(mat, (data | ~0x3) | facing.dataBed);
+            return of(mat, facing.dataBed);
+        case FURNACE:
+        case LADDER:
+        case CHEST:
+        case TRAPPED_CHEST:
+        case ENDER_CHEST:
+        case WALL_BANNER:
+        case WALL_SIGN:
+        case END_ROD:
+            return of(mat, facing.dataBlock);
+        case REDSTONE_TORCH_ON:
+        case REDSTONE_TORCH_OFF:
+        case TORCH:
+            return of(mat, facing.dataTorch);
         default:
             return this;
         }
@@ -243,6 +256,8 @@ final class Tile {
 
     static final Tile GLOWSTONE = of(Material.GLOWSTONE);
     static final Tile SEA_LANTERN = of(Material.SEA_LANTERN);
+    static final Tile END_ROD = of(Material.END_ROD);
+    static final Tile TORCH = of(Material.TORCH);
 
     void setBlock(Block block) {
         block.setTypeIdAndData(mat.getId(), (byte)data, true);

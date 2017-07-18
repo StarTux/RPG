@@ -17,6 +17,9 @@ import lombok.RequiredArgsConstructor;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
+import org.bukkit.SoundCategory;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
@@ -92,7 +95,7 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
         event.setCancelled(true);
         if (event.getHand() != EquipmentSlot.HAND) return;
         Player player = event.getPlayer();
-        ((Watcher)context.getEntityWatcher()).onTouch(player, player.getInventory().getItemInMainHand());
+        ((Watcher)context.getEntityWatcher()).onTouch(player, null);
     }
 
     @EventHandler
@@ -245,6 +248,8 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
                     message = message.replace("%npc%", npc.name);
                     message = message.replace("%next%", nextNPC.name);
                     plugin.getReputations().giveReputation(player, town.fraction, 10);
+                    player.spawnParticle(Particle.HEART, entity.getEyeLocation().add(0, 0.5, 0), 1, 0, 0, 0, 0);
+                    player.playSound(entity.getEyeLocation(), Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER, 0.5f, 1.75f);
                 }
             }
             if (message == null) {

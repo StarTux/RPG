@@ -19,8 +19,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
-import org.bukkit.event.player.PlayerInteractEntityEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.map.MapCursor;
 import org.bukkit.metadata.FixedMetadataValue;
@@ -151,20 +149,5 @@ public final class DeliveryItem implements CustomItem, UncraftableItem, Tickable
         if (config == null) return new Vec2(-1, -1);
         if (!config.isSet(KEY_SENDER)) return new Vec2(-1, -1);
         return new Vec2(config.getIntList(KEY_SENDER));
-    }
-
-    @EventHandler(ignoreCancelled = false, priority = EventPriority.LOWEST)
-    public void onPlayerInteractEntity(PlayerInteractEntityEvent event, ItemContext context) {
-        if (CustomPlugin.getInstance().getEntityManager().getCustomEntity(event.getRightClicked()) instanceof NPCEntity) {
-            interactNPCFlag = true;
-        }
-    }
-
-    @EventHandler(ignoreCancelled = false, priority = EventPriority.LOWEST)
-    public void onPlayerInteract(PlayerInteractEvent event, ItemContext context) {
-        if (interactNPCFlag) {
-            interactNPCFlag = false;
-            event.setUseItemInHand(Event.Result.DENY);
-        }
     }
 }

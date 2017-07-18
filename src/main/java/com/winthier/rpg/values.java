@@ -150,7 +150,7 @@ enum Facing {
     Facing(Vec2 vector, int dataTorch, int dataBlock, int dataStair, int dataBed) {
         this.vector = vector;
         this.dataTorch = dataTorch;
-        this.dataBlock = dataBlock;
+        this.dataBlock = dataBlock; // stair, end rod, banner
         this.dataStair = dataStair;
         this.dataBed = dataBed;
         this.dataFenceGate = dataBed;

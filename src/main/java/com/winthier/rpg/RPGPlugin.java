@@ -105,7 +105,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
                 player.sendMessage("Town not found: " + townName);
                 return true;
             } else {
-                player.teleport(world.getWorld().getHighestBlockAt((town.area.ax + town.area.bx) / 2, (town.area.ay + town.area.by) / 2).getLocation().add(0.5, 0, 0.5));
+                player.teleport(world.getWorld().getHighestBlockAt((town.area.ax + town.area.bx) / 2, (town.area.ay + town.area.by) / 2).getLocation().add(0.5, 0.5, 0.5));
                 player.sendMessage("Teleported to " + town.name);
             }
         } else if ("whereami".equals(cmd) && args.length == 1) {

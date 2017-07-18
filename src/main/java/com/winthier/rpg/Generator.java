@@ -639,7 +639,7 @@ final class Generator {
                         bedState.update();
                     } else if (torches > 0) {
                         torches -= 1;
-                        floor.getRelative(0, window ? 1 : 2, 0).setTypeIdAndData(Material.TORCH.getId(), (byte)facing.dataTorch, true);
+                        style.torch.facing(facing).setBlockNoPhysics(floor.getRelative(0, window ? 1 : 2, 0));
                     } else {
                         switch (randomInt(24)) {
                         case 0:
@@ -670,7 +670,7 @@ final class Generator {
                             floor.getRelative(0, 1, 0).setTypeIdAndData(Material.CHEST.getId(), (byte)facing.dataBlock, true);
                             break;
                         case 9:
-                            floor.getRelative(0, window ? 1 : 2, 0).setTypeIdAndData(Material.REDSTONE_TORCH_ON.getId(), (byte)facing.dataTorch, true);
+                            style.stair.facing(facing).setBlock(floor.getRelative(0, 1, 0));
                             break;
                         case 10:
                         case 11:
@@ -1129,7 +1129,7 @@ final class Generator {
                     tile = style.wallTop.orient(ori);
                     tileBelow = style.wall;
                     if (x == cx || z == cy) {
-                        tileAbove = style.gate.face(facing);
+                        tileAbove = style.gate.facing(facing);
                         isGate = true;
                     } else {
                         tileAbove = style.fence;
@@ -1516,6 +1516,7 @@ final class Generator {
         final Tile pillar, window;
         final Tile stair, slab, fence;
         Tile lamp = Tile.GLOWSTONE;
+        Tile torch = Tile.TORCH;
         Tile gate = Tile.OAK_FENCE_GATE;
         final int baseLevel;
         final double randomWallChance;
@@ -1843,6 +1844,7 @@ final class Generator {
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.PURPUR_SLAB;
                 stair = Tile.PURPUR_STAIRS;
+                torch = Tile.END_ROD;
                 baseLevel = 0;
                 randomWallChance = -1.0;
                 break;
@@ -1858,6 +1860,7 @@ final class Generator {
                 slab = Tile.NETHER_BRICK_SLAB;
                 stair = Tile.NETHER_BRICK_STAIRS;
                 gate = Tile.DARK_OAK_FENCE_GATE;
+                torch = Tile.of(Material.REDSTONE_TORCH_ON);
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1892,6 +1895,7 @@ final class Generator {
                 stair = roofStair = Tile.COBBLESTONE_STAIRS;
                 roofDoubleSlab = Tile.DOUBLE_COBBLESTONE_SLAB;
                 gate = Tile.OAK_FENCE_GATE;
+                torch = Tile.of(Material.REDSTONE_TORCH_ON);
                 baseLevel = 1;
                 randomWallChance = 0.25;
                 break;

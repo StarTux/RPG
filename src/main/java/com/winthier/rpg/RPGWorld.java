@@ -688,7 +688,7 @@ final class RPGWorld {
                       + town.name + ".\n\n"
                       + plugin.getMessages().deal(Messages.Type.SYNONYM_SINCERELY) + ", "
                       + senderName + ".",
-                      "If you do not know where to find " + npc.name + ", check your Mini Map and follow the white dots.");
+                      "If you do not know where to find " + npc.name + ", check your Mini Map and follow the white dots.\n\nTo hand this item over, left-click the recipient with it.");
         meta.setAuthor(senderName);
         meta.setGeneration(BookMeta.Generation.ORIGINAL);
         item.setItemMeta(meta);

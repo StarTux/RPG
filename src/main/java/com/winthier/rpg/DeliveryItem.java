@@ -73,9 +73,15 @@ public final class DeliveryItem implements CustomItem, UncraftableItem, Tickable
         if (ticks % 20 != 0) return;
         Player player = context.getPlayer();
         if (player == null) return;
-        if (plugin.getRPGWorld(player.getWorld()) == null) return;
+        if (plugin.getRPGWorld() == null) return;
         ItemStack item = context.getItemStack();
+        if (item.getAmount() != 1) return;
         Dirty.TagWrapper config = Dirty.TagWrapper.getItemConfigOf(item);
+        if (!config.isSet(KEY_TIMESTAMP) || !config.isSet(KEY_OWNER)) {
+            plugin.getRPGWorld().updateDeliveryItem(item, player);
+            return;
+        }
+        if (plugin.getRPGWorld(player.getWorld()) == null) return;
         if (config.getLong(KEY_TIMESTAMP) != plugin.getRPGWorld().getTimestamp()) {
             item.setAmount(0);
             return;

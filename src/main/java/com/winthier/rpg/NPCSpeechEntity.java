@@ -123,7 +123,7 @@ public final class NPCSpeechEntity implements CustomEntity, TickableEntity {
                 int shown = ticks / 2;
                 if (shown > message.length()) {
                     if (messages.size() == 1) {
-                        if (shown > messageLength * 2) {
+                        if (shown > message.length() + messageLength) {
                             remove();
                         }
                     } else {

@@ -223,7 +223,7 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
             moving = false;
             String itemId = item != null ? CustomPlugin.getInstance().getItemManager().getCustomId(item) : null;
             String message = null;
-            if (DeliveryItem.CUSTOM_ID.equals(itemId)) {
+            if (itemId != null && item.getAmount() == 1 && DeliveryItem.CUSTOM_ID.equals(itemId)) {
                 Dirty.TagWrapper config = Dirty.TagWrapper.getItemConfigOf(item);
                 Vec2 recipient = DeliveryItem.getRecipient(item);
                 String owner = config.getString(DeliveryItem.KEY_OWNER);

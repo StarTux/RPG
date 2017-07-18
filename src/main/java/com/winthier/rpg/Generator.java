@@ -207,6 +207,38 @@ final class Generator {
         Collections.shuffle(town.chunks);
         int fountains = 1;
         int farms = 1 + random.nextInt(3);
+        List<Block> roadBlocks = new ArrayList<>();
+        for (Vec2 chunk: town.chunks) {
+            if (town.chunks.contains(chunk.relative(1, 0))) {
+                for (int z = 0; z < 16; z += 1) {
+                    roadBlocks.add(findHighestBlock(world.getBlockAt(chunk.x * 16 + 15, 0, chunk.y * 16 + z)));
+                }
+            }
+            if (town.chunks.contains(chunk.relative(-1, 0))) {
+                for (int z = 0; z < 16; z += 1) {
+                    roadBlocks.add(findHighestBlock(world.getBlockAt(chunk.x * 16, 0, chunk.y * 16 + z)));
+                }
+            }
+            if (town.chunks.contains(chunk.relative(0, 1))) {
+                for (int x = 0; x < 16; x += 1) {
+                    roadBlocks.add(findHighestBlock(world.getBlockAt(chunk.x * 16 + x, 0, chunk.y * 16 + 15)));
+                }
+            }
+            if (town.chunks.contains(chunk.relative(0, -1))) {
+                for (int x = 0; x < 16; x += 1) {
+                    roadBlocks.add(findHighestBlock(world.getBlockAt(chunk.x * 16 + x, 0, chunk.y * 16)));
+                }
+            }
+        }
+        for (Block block: roadBlocks) {
+            Block upper = block.getRelative(0, 1, 0);
+            while (upper.getType() != Material.AIR) {
+                upper.setType(Material.AIR);
+                upper = upper.getRelative(0, 1, 0);
+            }
+            Tile.of(Material.DIRT).setBlockNoPhysics(block.getRelative(0, -1, 0));
+            Tile.of(Material.GRASS_PATH).setBlockNoPhysics(block);
+        }
         for (Vec2 chunk: town.chunks) {
             Chunk bchunk = world.getChunkAt(chunk.x, chunk.y);
             for (Entity e: bchunk.getEntities()) {
@@ -215,15 +247,15 @@ final class Generator {
             if (fountains > 0) {
                 fountains -= 1;
                 int size = 3 + random.nextInt(4);
-                int offx = random.nextInt(13 - size);
-                int offy = random.nextInt(13 - size);
+                int offx = 1 + random.nextInt(13 - size);
+                int offy = 1 + random.nextInt(13 - size);
                 plantFountain(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), size);
             } else if (farms > 0) {
                 farms -= 1;
                 int width = 7 + random.nextInt(3) * 2;
                 int height = 7 + random.nextInt(3) * 2;
-                int offx = random.nextInt(13 - width);
-                int offy = random.nextInt(13 - height);
+                int offx = 1 + random.nextInt(13 - width);
+                int offy = 1 + random.nextInt(13 - height);
                 plantFarm(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), width, height);
             } else {
                 int width = 4 + random.nextInt(11);
@@ -340,6 +372,13 @@ final class Generator {
             boolean tileIsCorner = tileIsWall && ((eastIsWall && southIsWall) || (southIsWall && westIsWall) || (westIsWall && northIsWall) || (northIsWall && eastIsWall));
             Orientation ori = eastIsWall || westIsWall ? Orientation.HORIZONTAL : Orientation.VERTICAL;
             // Make a base
+            if (flagAltitude != Flag.UNDERGROUND && flagAltitude != Flag.HERE) {
+                Block upper = floor.getRelative(0, 1, 0);
+                while (upper.getType() != Material.AIR) {
+                    upper.setType(Material.AIR);
+                    upper = upper.getRelative(0, 1, 0);
+                }
+            }
             if (!noBase) {
                 Block block = floor.getRelative(0, -1, 0);
                 while (true) {
@@ -749,49 +788,45 @@ final class Generator {
                 RoomTile tile = tiles.get(vec);
                 if (tile != null) {
                     while (roof1.getY() < roof2.getY()) {
-                        if (!roof1.getType().isSolid() || replaceMats.contains(roof1.getType())) {
-                            style.roofDoubleSlab.setBlock(roof1);
-                        }
+                        style.roofDoubleSlab.setBlock(roof1);
                         roof1 = roof1.getRelative(0, 1, 0);
                     }
                 }
-                if (!roof2.getType().isSolid() || replaceMats.contains(roof2.getType())) {
-                    if (useStairs) {
-                        Integer nbor1 = roofs.get(vec.relative(relx, rely));
-                        Integer nbor2 = roofs.get(vec.relative(-relx, -rely));
-                        if (nbor1 == null) nbor1 = -1;
-                        if (nbor2 == null) nbor2 = -1;
-                        if (nbor1 < roofLevel && nbor2 < roofLevel) {
-                            style.roofSlab.setBlock(roof2);
-                        } else {
-                            int dataStair;
-                            switch (roofOri) {
-                            case HORIZONTAL:
-                                if (nbor1 < roofLevel) {
-                                    dataStair = Facing.EAST.dataStair;
-                                } else {
-                                    dataStair = Facing.WEST.dataStair;
-                                }
-                                break;
-                            case VERTICAL: default:
-                                if (nbor1 < roofLevel) {
-                                    dataStair = Facing.SOUTH.dataStair;
-                                } else {
-                                    dataStair = Facing.NORTH.dataStair;
-                                }
-                                break;
-                            }
-                            style.roofStair.or(dataStair).setBlock(roof2);
-                        }
+                if (useStairs) {
+                    Integer nbor1 = roofs.get(vec.relative(relx, rely));
+                    Integer nbor2 = roofs.get(vec.relative(-relx, -rely));
+                    if (nbor1 == null) nbor1 = -1;
+                    if (nbor2 == null) nbor2 = -1;
+                    if (nbor1 < roofLevel && nbor2 < roofLevel) {
+                        style.roofSlab.setBlock(roof2);
                     } else {
-                        if ((roofLevel & 1) == 0) {
-                            style.roofSlab.setBlock(roof2);
-                        } else {
-                            if (tiles.containsKey(vec)) {
-                                style.roofDoubleSlab.setBlock(roof2);
+                        int dataStair;
+                        switch (roofOri) {
+                        case HORIZONTAL:
+                            if (nbor1 < roofLevel) {
+                                dataStair = Facing.EAST.dataStair;
                             } else {
-                                style.roofSlab.or(8).setBlock(roof2);
+                                dataStair = Facing.WEST.dataStair;
                             }
+                            break;
+                        case VERTICAL: default:
+                            if (nbor1 < roofLevel) {
+                                dataStair = Facing.SOUTH.dataStair;
+                            } else {
+                                dataStair = Facing.NORTH.dataStair;
+                            }
+                            break;
+                        }
+                        style.roofStair.or(dataStair).setBlock(roof2);
+                    }
+                } else {
+                    if ((roofLevel & 1) == 0) {
+                        style.roofSlab.setBlock(roof2);
+                    } else {
+                        if (tiles.containsKey(vec)) {
+                            style.roofDoubleSlab.setBlock(roof2);
+                        } else {
+                            style.roofSlab.or(8).setBlock(roof2);
                         }
                     }
                 }
@@ -1004,8 +1039,7 @@ final class Generator {
                     foundation = foundation.getRelative(0, -1, 0);
                 }
                 Block upper = block.getRelative(0, 1, 0);
-                int highestY = block.getWorld().getHighestBlockYAt(block.getX(), block.getZ());
-                while (upper.getY() <= highestY || upper.getType() != Material.AIR) {
+                while (upper.getType() != Material.AIR) {
                     Tile.AIR.setBlock(upper);
                     upper = upper.getRelative(0, 1, 0);
                 }

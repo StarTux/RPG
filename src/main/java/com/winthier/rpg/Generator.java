@@ -63,11 +63,11 @@ final class Generator {
     }
 
     String generateName(int syllables) {
-        final String[] beginSyllable = {"b", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "qu", "r", "s", "t", "v", "w", "x", "z", "sh", "st", "sn", "sk", "sl", "sm", "ch", "kr", "fr", "gr", "tr", "y", "bl", "ph", "pl", "pr", "str", "chr", "schw", "th", "thr", "thn"};
+        final String[] beginSyllable = {"b", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "qu", "r", "s", "t", "v", "w", "x", "z", "sh", "st", "sn", "sk", "sl", "sm", "ch", "kr", "fr", "gr", "tr", "y", "bl", "ph", "pl", "pr", "str", "chr", "schw", "th", "thr", "thn", "rh"};
         final String[] vocals = {"a", "e", "i", "o", "u"};
         final String[] longVocals = {"aa", "ee", "oo"};
-        final String[] diphtongs = {"au", "ei", "ou"};
-        final String[] accents = {"á", "à", "é", "è", "ó", "ò", "ú", "ù"};
+        final String[] diphtongs = {"au", "ei", "ou", "ie", "ai", "ea", "ae"};
+        final String[] accents = {"á", "â", "à", "é", "ê", "è", "ó", "ô", "ò", "ú", "û", "ù"};
         final String[] umlauts = {"ä", "ö", "ü"};
         final String[] endSyllable = {"b", "d", "f", "g", "k", "l", "m", "n", "p", "r", "s", "t", "v", "w", "x", "z", "st", "nd", "sd", "sh", "tsh", "sch", "ng", "nk", "rk", "lt", "ld", "rn", "rt", "rs", "ts", "mb", "rst", "tch", "ch"};
         final String[] endStrong = {"ff", "gg", "kk", "ll", "mm", "nn", "pp", "rr", "ss", "tt", "tz", "ck", "th", "rth", "nth", "ns"};
@@ -207,30 +207,38 @@ final class Generator {
         Collections.shuffle(town.chunks);
         int fountains = 1;
         int farms = 1 + random.nextInt(3);
-        List<Block> roadBlocks = new ArrayList<>();
+        List<Vec2> roadBlocks = new ArrayList<>();
         for (Vec2 chunk: town.chunks) {
             if (town.chunks.contains(chunk.relative(1, 0))) {
                 for (int z = 0; z < 16; z += 1) {
-                    roadBlocks.add(findHighestBlock(world.getBlockAt(chunk.x * 16 + 15, 0, chunk.y * 16 + z)));
+                    roadBlocks.add(new Vec2(chunk.x * 16 + 15, chunk.y * 16 + z));
                 }
             }
             if (town.chunks.contains(chunk.relative(-1, 0))) {
                 for (int z = 0; z < 16; z += 1) {
-                    roadBlocks.add(findHighestBlock(world.getBlockAt(chunk.x * 16, 0, chunk.y * 16 + z)));
+                    roadBlocks.add(new Vec2(chunk.x * 16, chunk.y * 16 + z));
                 }
             }
             if (town.chunks.contains(chunk.relative(0, 1))) {
                 for (int x = 0; x < 16; x += 1) {
-                    roadBlocks.add(findHighestBlock(world.getBlockAt(chunk.x * 16 + x, 0, chunk.y * 16 + 15)));
+                    roadBlocks.add(new Vec2(chunk.x * 16 + x, chunk.y * 16 + 15));
                 }
             }
             if (town.chunks.contains(chunk.relative(0, -1))) {
                 for (int x = 0; x < 16; x += 1) {
-                    roadBlocks.add(findHighestBlock(world.getBlockAt(chunk.x * 16 + x, 0, chunk.y * 16)));
+                    roadBlocks.add(new Vec2(chunk.x * 16 + x, chunk.y * 16));
                 }
             }
         }
-        for (Block block: roadBlocks) {
+        for (Vec2 vec: roadBlocks) {
+            List<Integer> ys = new ArrayList<>();
+            for (Vec2 vec2: roadBlocks) {
+                if (vec.maxDistance(vec2) <= 5) {
+                    ys.add(findHighestBlock(world.getBlockAt(vec2.x, 0, vec2.y)).getY());
+                }
+            }
+            Collections.sort(ys);
+            Block block = world.getBlockAt(vec.x, ys.get(ys.size() / 2), vec.y);
             Block upper = block.getRelative(0, 1, 0);
             while (upper.getType() != Material.AIR) {
                 upper.setType(Material.AIR);
@@ -258,8 +266,8 @@ final class Generator {
                 int offy = 1 + random.nextInt(13 - height);
                 plantFarm(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), width, height);
             } else {
-                int width = 4 + random.nextInt(11);
-                int height = 4 + random.nextInt(11);
+                int width = 10 + random.nextInt(5) - random.nextInt(6);
+                int height = 10 + random.nextInt(5) - random.nextInt(6);
                 int offx = width >= 13 ? 1 : 1 + random.nextInt(13 - width);
                 int offy = height >= 13 ? 1 : 1 + random.nextInt(13 - height);
                 House house = generateHouse(width, height);
@@ -333,6 +341,7 @@ final class Generator {
             case JUNGLE: matDoor = Material.JUNGLE_DOOR; break;
             case ACACIA: matDoor = Material.ACACIA_DOOR; break;
             case DARK_OAK: matDoor = Material.DARK_OAK_DOOR; break;
+            case NETHER: matDoor = Material.IRON_DOOR_BLOCK; break;
             default:
                 switch (random.nextInt(7)) {
                 case 0: matDoor = Material.ACACIA_DOOR; break;

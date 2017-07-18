@@ -79,6 +79,8 @@ town_sign:
 - No littering
 - Behave in
 - Lovely
+- Visit
+- Welcome back
 distant_relationship: [friend, sibling, colleague, partner, associate, old friend, acquaintance, beloved friend, business partner, buddy, pal, pen pal]
 synonym_deliver: [deliver, bring, show, carry, submit, take]
 synonym_delivery: [letter, delivery, package, parcel, message, note, report, gift, communication, missive, bulletin, shipment]

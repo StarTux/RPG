@@ -63,7 +63,48 @@ final class Tile {
         }
     }
 
+    Tile face(Facing facing) {
+        switch (mat) {
+        case BED:
+        case FENCE_GATE:
+        case SPRUCE_FENCE_GATE:
+        case BIRCH_FENCE_GATE:
+        case JUNGLE_FENCE_GATE:
+        case ACACIA_FENCE_GATE:
+        case DARK_OAK_FENCE_GATE:
+            return of(mat, (data | ~0x3) | facing.dataBed);
+        default:
+            return this;
+        }
+    }
+
+    boolean isTallFence() {
+        switch (mat) {
+        case FENCE_GATE:
+        case SPRUCE_FENCE_GATE:
+        case BIRCH_FENCE_GATE:
+        case JUNGLE_FENCE_GATE:
+        case ACACIA_FENCE_GATE:
+        case DARK_OAK_FENCE_GATE:
+        case FENCE:
+        case SPRUCE_FENCE:
+        case BIRCH_FENCE:
+        case JUNGLE_FENCE:
+        case ACACIA_FENCE:
+        case DARK_OAK_FENCE:
+        case NETHER_FENCE:
+        case COBBLE_WALL:
+            return true;
+        default: return false;
+        }
+    }
+
     static final Tile AIR = of(Material.AIR);
+    static final Tile DIRT = of(Material.DIRT);
+    static final Tile COARSE_DIRT = of(Material.DIRT, 1);
+    static final Tile PODZOL = of(Material.DIRT, 2);
+    static final Tile GRASS = of(Material.GRASS);
+    static final Tile GRASS_PATH = of(Material.GRASS_PATH);
 
     static final Tile STONE = of(Material.STONE);
     static final Tile GRANITE = of(Material.STONE, 1);
@@ -76,6 +117,7 @@ final class Tile {
     static final Tile CONCRETE = of(Material.CONCRETE);
     static final Tile CONCRETE_POWDER = of(Material.CONCRETE_POWDER);
     static final Tile TERRACOTTA = of(Material.STAINED_CLAY);
+    static final Tile STAINED_GLASS_PANE = of(Material.THIN_GLASS);
 
     static final Tile PURPUR_BLOCK = of(Material.PURPUR_BLOCK);
     static final Tile PURPUR_PILLAR = of(Material.PURPUR_PILLAR);
@@ -95,6 +137,7 @@ final class Tile {
     static final Tile COBBLESTONE = of(Material.COBBLESTONE);
     static final Tile MOSSY_COBBLESTONE = of(Material.MOSSY_COBBLESTONE);
     static final Tile COBBLESTONE_WALL = of(Material.COBBLE_WALL);
+    static final Tile MOSSY_COBBLESTONE_WALL = of(Material.COBBLE_WALL, 1);
     static final Tile GLASS_PANE = of(Material.THIN_GLASS);
     static final Tile BRICKS = of(Material.BRICK);
 
@@ -182,6 +225,24 @@ final class Tile {
     static final Tile QUARTZ_BLOCK = of(Material.QUARTZ_BLOCK);
     static final Tile CHISELED_QUARTZ_BLOCK = of(Material.QUARTZ_BLOCK, 1);
     static final Tile PILLAR_QUARTZ_BLOCK = of(Material.QUARTZ_BLOCK, 2);
+
+    static final Tile OAK_FENCE_GATE = of(Material.FENCE_GATE);
+    static final Tile SPRUCE_FENCE_GATE = of(Material.SPRUCE_FENCE_GATE);
+    static final Tile BIRCH_FENCE_GATE = of(Material.BIRCH_FENCE_GATE);
+    static final Tile JUNGLE_FENCE_GATE = of(Material.JUNGLE_FENCE_GATE);
+    static final Tile ACACIA_FENCE_GATE = of(Material.ACACIA_FENCE_GATE);
+    static final Tile DARK_OAK_FENCE_GATE = of(Material.DARK_OAK_FENCE_GATE);
+
+    static final Tile PRISMARINE = of(Material.PRISMARINE);
+    static final Tile PRISMARINE_BRICKS = of(Material.PRISMARINE, 1);
+    static final Tile DARK_PRISMARINE = of(Material.PRISMARINE, 2);
+
+    static final Tile IRON_BLOCK = of(Material.IRON_BLOCK);
+    static final Tile IRON_BARS = of(Material.IRON_FENCE);
+    static final Tile IRON_TRAPDOOR = of(Material.IRON_TRAPDOOR);
+
+    static final Tile GLOWSTONE = of(Material.GLOWSTONE);
+    static final Tile SEA_LANTERN = of(Material.SEA_LANTERN);
 
     void setBlock(Block block) {
         block.setTypeIdAndData(mat.getId(), (byte)data, true);

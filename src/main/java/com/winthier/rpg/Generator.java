@@ -29,16 +29,22 @@ import org.bukkit.block.banner.PatternType;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.material.Colorable;
 import org.bukkit.material.MaterialData;
 
 final class Generator {
     final RPGPlugin plugin;
     final Random random = new Random(System.currentTimeMillis());
-    final Set<Material> replaceMats = EnumSet.of(Material.LOG, Material.LOG_2, Material.LEAVES, Material.LEAVES_2, Material.PUMPKIN, Material.HUGE_MUSHROOM_1, Material.HUGE_MUSHROOM_2);
+    final Set<Material> replaceMats = EnumSet.of(Material.LOG, Material.LOG_2, Material.LEAVES, Material.LEAVES_2, Material.PUMPKIN, Material.HUGE_MUSHROOM_1, Material.HUGE_MUSHROOM_2, Material.SNOW, Material.ICE, Material.PACKED_ICE);
     final Map<Vec2, Block> highestBlocks = new HashMap<>();
     private Set<Flag> flags = EnumSet.noneOf(Flag.class);
     private Map<Flag.Strategy, Flag> uniqueFlags = new EnumMap<>(Flag.Strategy.class);
     private Town town;
+
+    int randomInt(int i) {
+        if (i < 2) return 0;
+        return random.nextInt(i);
+    }
 
     void setFlags(Collection<Flag> newFlags) {
         this.flags.clear();
@@ -59,22 +65,22 @@ final class Generator {
     }
 
     String generateName() {
-        return generateName(1 + random.nextInt(3));
+        return generateName(1 + randomInt(3));
     }
 
     String generateName(int syllables) {
         final String[] beginSyllable = {"b", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "qu", "r", "s", "t", "v", "w", "x", "z", "sh", "st", "sn", "sk", "sl", "sm", "ch", "kr", "fr", "gr", "tr", "y", "bl", "ph", "pl", "pr", "str", "chr", "schw", "th", "thr", "thn", "rh"};
         final String[] vocals = {"a", "e", "i", "o", "u"};
         final String[] longVocals = {"aa", "ee", "oo"};
-        final String[] diphtongs = {"au", "ei", "ou", "ie", "ai", "ea", "ae"};
+        final String[] diphtongs = {"ae", "ai", "au", "ea", "ei", "ia", "ie", "io", "oa", "oi", "ou", "ua", "ui"};
         final String[] accents = {"á", "â", "à", "é", "ê", "è", "ó", "ô", "ò", "ú", "û", "ù"};
         final String[] umlauts = {"ä", "ö", "ü"};
-        final String[] endSyllable = {"b", "d", "f", "g", "k", "l", "m", "n", "p", "r", "s", "t", "v", "w", "x", "z", "st", "nd", "sd", "sh", "tsh", "sch", "ng", "nk", "rk", "lt", "ld", "rn", "rt", "rs", "ts", "mb", "rst", "tch", "ch"};
+        final String[] endSyllable = {"b", "d", "f", "g", "k", "l", "m", "n", "p", "r", "s", "t", "v", "w", "x", "y", "z", "st", "nd", "sd", "sh", "tsh", "sch", "ng", "nk", "rk", "lt", "ld", "rn", "rt", "rs", "ts", "mb", "rst", "tch", "ch"};
         final String[] endStrong = {"ff", "gg", "kk", "ll", "mm", "nn", "pp", "rr", "ss", "tt", "tz", "ck", "th", "rth", "nth", "ns"};
         StringBuilder sb = new StringBuilder();
         boolean priorHasEnd = true;
         boolean priorStrongEnd = false;
-        int useSpecialChars = random.nextInt(2);
+        int useSpecialChars = randomInt(2);
         for (int i = 0; i < syllables; i += 1) {
             boolean hasBegin = !priorHasEnd || random.nextBoolean();
             boolean hasEnd = random.nextBoolean();
@@ -85,27 +91,27 @@ final class Generator {
                     hasEnd = true;
                 }
             }
-            if (hasBegin) sb.append(beginSyllable[random.nextInt(beginSyllable.length)]);
+            if (hasBegin) sb.append(beginSyllable[randomInt(beginSyllable.length)]);
             boolean allowStrongEnd = true;
-            switch (random.nextInt(8)) {
+            switch (randomInt(6)) {
             case 0:
                 switch (useSpecialChars) {
-                case 0: sb.append(accents[random.nextInt(accents.length)]); break;
-                case 1: default: sb.append(umlauts[random.nextInt(umlauts.length)]);
+                case 0: sb.append(accents[randomInt(accents.length)]); break;
+                case 1: default: sb.append(umlauts[randomInt(umlauts.length)]);
                 }
                 break;
-            case 1: sb.append(longVocals[random.nextInt(longVocals.length)]);
+            case 1: sb.append(longVocals[randomInt(longVocals.length)]);
                 allowStrongEnd = false;
                 break;
-            case 2: sb.append(diphtongs[random.nextInt(diphtongs.length)]); break;
-            default: sb.append(vocals[random.nextInt(vocals.length)]);
+            case 2: sb.append(diphtongs[randomInt(diphtongs.length)]); break;
+            default: sb.append(vocals[randomInt(vocals.length)]);
             }
             if (hasEnd) {
-                if (!priorStrongEnd && allowStrongEnd && random.nextInt(3) == 0) {
-                    sb.append(endStrong[random.nextInt(endStrong.length)]);
+                if (!priorStrongEnd && allowStrongEnd && randomInt(3) == 0) {
+                    sb.append(endStrong[randomInt(endStrong.length)]);
                     priorStrongEnd = true;
                 } else {
-                    sb.append(endSyllable[random.nextInt(endSyllable.length)]);
+                    sb.append(endSyllable[randomInt(endSyllable.length)]);
                     priorStrongEnd = false;
                 }
             }
@@ -130,8 +136,8 @@ final class Generator {
         double size = world.getWorldBorder().getSize() * 0.5;
         Block blockMin = world.getWorldBorder().getCenter().add(-size, 0, -size).getBlock();
         Block blockMax = world.getWorldBorder().getCenter().add(size, 0, size).getBlock();
-        int x = blockMin.getX() + random.nextInt(blockMax.getX() - blockMin.getX());
-        int z = blockMin.getZ() + random.nextInt(blockMax.getZ() - blockMin.getZ());
+        int x = blockMin.getX() + randomInt(blockMax.getX() - blockMin.getX());
+        int z = blockMin.getZ() + randomInt(blockMax.getZ() - blockMin.getZ());
         Chunk centerChunk = world.getBlockAt(x, 0, z).getChunk();
         return tryToPlantTown(centerChunk, sizeInChunks);
     }
@@ -156,7 +162,9 @@ final class Generator {
             for (int z = 0; z < 16; z += 1) {
                 for (int x = 0; x < 16; x += 1) {
                     Block block = findHighestBlock(chunk.getBlock(x, 0, z));
-                    if (block.isLiquid()) {
+                    if (block.isLiquid()
+                        || block.getType() == Material.ICE
+                        || block.getType() == Material.PACKED_ICE) {
                         heights.add(0);
                     } else {
                         heights.add(block.getY() + 1);
@@ -205,8 +213,6 @@ final class Generator {
 
     void plantTown(World world, Town town) {
         Collections.shuffle(town.chunks);
-        int fountains = 1;
-        int farms = 1 + random.nextInt(3);
         List<Vec2> roadBlocks = new ArrayList<>();
         for (Vec2 chunk: town.chunks) {
             if (town.chunks.contains(chunk.relative(1, 0))) {
@@ -247,6 +253,9 @@ final class Generator {
             Tile.of(Material.DIRT).setBlockNoPhysics(block.getRelative(0, -1, 0));
             Tile.of(Material.GRASS_PATH).setBlockNoPhysics(block);
         }
+        int fountains = 1;
+        int farms = 1 + randomInt(3);
+        int pastures = 1 + randomInt(2);
         for (Vec2 chunk: town.chunks) {
             Chunk bchunk = world.getChunkAt(chunk.x, chunk.y);
             for (Entity e: bchunk.getEntities()) {
@@ -254,22 +263,29 @@ final class Generator {
             }
             if (fountains > 0) {
                 fountains -= 1;
-                int size = 3 + random.nextInt(4);
-                int offx = 1 + random.nextInt(13 - size);
-                int offy = 1 + random.nextInt(13 - size);
+                int size = 3 + randomInt(4);
+                int offx = 1 + randomInt(14 - size);
+                int offy = 1 + randomInt(14 - size);
                 plantFountain(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), size);
             } else if (farms > 0) {
                 farms -= 1;
-                int width = 7 + random.nextInt(3) * 2;
-                int height = 7 + random.nextInt(3) * 2;
-                int offx = 1 + random.nextInt(13 - width);
-                int offy = 1 + random.nextInt(13 - height);
+                int width = 7 + randomInt(3) * 2;
+                int height = 7 + randomInt(3) * 2;
+                int offx = 1 + randomInt(14 - width);
+                int offy = 1 + randomInt(14 - height);
                 plantFarm(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), width, height);
+            } else if (pastures > 0) {
+                pastures -= 1;
+                int width = 8 + randomInt(7);
+                int height = 8 + randomInt(7);
+                int offx = 1 + randomInt(14 - width);
+                int offy = 1 + randomInt(14 - height);
+                plantPasture(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), width, height);
             } else {
-                int width = 10 + random.nextInt(5) - random.nextInt(6);
-                int height = 10 + random.nextInt(5) - random.nextInt(6);
-                int offx = width >= 13 ? 1 : 1 + random.nextInt(13 - width);
-                int offy = height >= 13 ? 1 : 1 + random.nextInt(13 - height);
+                int width = 10 + randomInt(5) - randomInt(6);
+                int height = 10 + randomInt(5) - randomInt(6);
+                int offx = width >= 13 ? 1 : 1 + randomInt(13 - width);
+                int offy = height >= 13 ? 1 : 1 + randomInt(13 - height);
                 House house = generateHouse(width, height);
                 town.houses.add(house);
                 house.townId = town.townId;
@@ -291,10 +307,10 @@ final class Generator {
         int floorLevel;
         switch (flagAltitude) {
         case UNDERGROUND:
-            floorLevel = 4 + random.nextInt(40);
+            floorLevel = 4 + randomInt(40);
             break;
         case FLOATING:
-            floorLevel = 128 + random.nextInt(100);
+            floorLevel = 128 + randomInt(100);
             break;
         case HERE:
             floorLevel = start.getY() - 1;
@@ -342,8 +358,9 @@ final class Generator {
             case ACACIA: matDoor = Material.ACACIA_DOOR; break;
             case DARK_OAK: matDoor = Material.DARK_OAK_DOOR; break;
             case NETHER: matDoor = Material.IRON_DOOR_BLOCK; break;
+            case IRON: matDoor = Material.IRON_DOOR_BLOCK; break;
             default:
-                switch (random.nextInt(7)) {
+                switch (randomInt(7)) {
                 case 0: matDoor = Material.ACACIA_DOOR; break;
                 case 1: matDoor = Material.BIRCH_DOOR; break;
                 case 2: matDoor = Material.DARK_OAK_DOOR; break;
@@ -362,9 +379,9 @@ final class Generator {
         case SPRUCE_DOOR: matDoor = Material.SPRUCE_DOOR; break;
         case OAK_DOOR: default: matDoor = Material.WOODEN_DOOR;
         }
-        int color = random.nextInt(16);
-        int roomHeight = 4 + random.nextInt(3);
-        int windowHeight = 1 + random.nextInt(roomHeight - 3);
+        int color = randomInt(16);
+        int roomHeight = 4 + randomInt(3);
+        int windowHeight = 1 + randomInt(roomHeight - 3);
         Style style = new Style(flagStyle, color);
         for (Vec2 vec: tiles.keySet()) {
             Block floor = offset.getRelative(vec.x, 0, vec.y);
@@ -514,11 +531,11 @@ final class Generator {
         }
         // Decorations
         if (!noDecoration) {
-            int beds = 1 + random.nextInt(house.rooms.size());
+            int beds = 1 + randomInt(house.rooms.size());
             for (Room room: house.rooms) {
                 boolean bed = false;
                 int amount = room.width() + room.height();
-                int torches = 2 + random.nextInt(3);
+                int torches = 2 + randomInt(3);
                 Set<Vec2> decs = new HashSet<>();
                 int ax = room.ax + 1;
                 int ay = room.ay + 1;
@@ -624,7 +641,7 @@ final class Generator {
                         torches -= 1;
                         floor.getRelative(0, window ? 1 : 2, 0).setTypeIdAndData(Material.TORCH.getId(), (byte)facing.dataTorch, true);
                     } else {
-                        switch (random.nextInt(24)) {
+                        switch (randomInt(24)) {
                         case 0:
                             if (!window) floor.getRelative(0, 3, 0).setType(Material.BOOKSHELF);
                             // fallthrough
@@ -665,7 +682,7 @@ final class Generator {
                             style.stair.or(facing.dataStair | 4).setBlock(floor.getRelative(0, 1, 0));
                             floor.getRelative(0, 2, 0).setType(Material.FLOWER_POT);
                             MaterialData flower;
-                            switch (random.nextInt(32)) {
+                            switch (randomInt(32)) {
                             case 0: flower = new MaterialData(Material.RED_ROSE, (byte)0); break;
                             case 1: flower = new MaterialData(Material.RED_ROSE, (byte)1); break;
                             case 2: flower = new MaterialData(Material.RED_ROSE, (byte)2); break;
@@ -693,16 +710,16 @@ final class Generator {
                             pot.update();
                             break;
                         case 17:
-                            floor.getRelative(0, 1, 0).setTypeIdAndData(Material.ANVIL.getId(), (byte)random.nextInt(12), true);
+                            floor.getRelative(0, 1, 0).setTypeIdAndData(Material.ANVIL.getId(), (byte)randomInt(12), true);
                             break;
                         case 18:
                             floor.getRelative(0, 2, 0).setTypeIdAndData(Material.WALL_BANNER.getId(), (byte)facing.dataBlock, true);
                             org.bukkit.block.Banner banner = (org.bukkit.block.Banner)floor.getRelative(0, 2, 0).getState();
                             banner.setBaseColor(DyeColor.values()[color]);
-                            int patternCount = 1 + random.nextInt(4);
+                            int patternCount = 1 + randomInt(4);
                             List<Pattern> patterns = new ArrayList<>(patternCount);
                             for (int j = 0; j < patternCount; j += 1) {
-                                patterns.add(new Pattern(DyeColor.values()[random.nextInt(DyeColor.values().length)], PatternType.values()[random.nextInt(PatternType.values().length)]));
+                                patterns.add(new Pattern(DyeColor.values()[randomInt(DyeColor.values().length)], PatternType.values()[randomInt(PatternType.values().length)]));
                             }
                             banner.setPatterns(patterns);
                             banner.update();
@@ -843,7 +860,7 @@ final class Generator {
         }
         // Generate NPCs
         int totalNPCs = 1;
-        for (int i = 0; i < house.rooms.size() - 1; i += 1) totalNPCs += random.nextInt(2);
+        for (int i = 0; i < house.rooms.size() - 1; i += 1) totalNPCs += randomInt(2);
         List<Vec2> possibleNPCSpots = new ArrayList<>();
         for (Room room: house.rooms) {
             List<Vec2> vecs = new ArrayList<>();
@@ -853,7 +870,7 @@ final class Generator {
                     if (house.tiles.get(vec) == RoomTile.FLOOR) vecs.add(vec);
                 }
             }
-            if (!vecs.isEmpty()) possibleNPCSpots.add(vecs.get(random.nextInt(vecs.size())));
+            if (!vecs.isEmpty()) possibleNPCSpots.add(vecs.get(randomInt(vecs.size())));
         }
         Collections.shuffle(possibleNPCSpots, random);
         totalNPCs = Math.min(possibleNPCSpots.size(), totalNPCs);
@@ -876,8 +893,9 @@ final class Generator {
         int floorLevel = highest.get(highest.size() / 2);
         Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
         Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), 0);
-        int height = 4 + random.nextInt(3);
+        int height = 4 + randomInt(3);
         boolean nether = uniqueFlags.get(Flag.Strategy.STYLE) == Flag.NETHER;
+        int waterLevel = 1 + randomInt(14);
         for (int z = 0; z < size; z += 1) {
             for (int x = 0; x < size; x += 1) {
                 boolean outerX, outerZ, isWall, isCorner;
@@ -917,7 +935,7 @@ final class Generator {
                     }
                     for (int i = 0; i < 16; i += 1) {
                         Block blockWater = block.getRelative(0, -i, 0);
-                        if (i < 2) {
+                        if (i < waterLevel) {
                             blockWater.setType(Material.AIR);
                         } else {
                             if (nether) {
@@ -958,7 +976,7 @@ final class Generator {
         Tile.of(Material.WALL_SIGN, facing.dataBlock).setBlockNoPhysics(signBlock);
         org.bukkit.block.Sign sign = (org.bukkit.block.Sign)signBlock.getState();
         String underscore;
-        switch (random.nextInt(9)) {
+        switch (randomInt(9)) {
         case 0: underscore = "============"; break;
         case 1: underscore = "------------"; break;
         case 2: underscore = "~~~~~~~~~~~~"; break;
@@ -999,7 +1017,7 @@ final class Generator {
             fruit = Tile.of(Material.NETHER_WARTS, 3);
             soil = Tile.of(Material.SOUL_SAND);
         } else {
-            switch (random.nextInt(5)) {
+            switch (randomInt(5)) {
             case 0: fruit = Tile.of(Material.BEETROOT_BLOCK, 3); break;
             case 1: fruit = Tile.of(Material.CARROT, 7); break;
             case 2: fruit = Tile.of(Material.POTATO, 7); break;
@@ -1034,7 +1052,7 @@ final class Generator {
                 } else if (x == cx && z == cy && !nether) {
                     tile = Tile.of(Material.STATIONARY_WATER);
                     tileBelow = style.foundation;
-                    tileAbove = Tile.of(Material.GLOWSTONE);
+                    tileAbove = style.lamp;
                     isCenter = true;
                 } else {
                     tile = soil;
@@ -1061,7 +1079,122 @@ final class Generator {
         }
         if (town != null) {
             Cuboid bb = new Cuboid(offset.getX(), offset.getY(), offset.getZ(),
-                                   offset.getX() + width, offset.getY() + 1, offset.getZ() + height);
+                                   offset.getX() + width, offset.getY() + 3, offset.getZ() + height);
+            town.structures.add(new Structure("farm", bb, Arrays.asList(bb)));
+        }
+    }
+
+    void plantPasture(Block start, int width, int height) {
+        List<Integer> highest = new ArrayList<>();
+        Map<Vec2, Integer> tiles = new HashMap<>();
+        for (int y = 0; y < height; y += 1) {
+            for (int x = 0; x < width; x += 1) {
+                highest.add(findHighestBlock(start.getRelative(x, 0, y)).getY());
+            }
+        }
+        Collections.sort(highest);
+        int floorLevel = highest.get(highest.size() / 2);
+        Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
+        Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), 0);
+        boolean nether = uniqueFlags.get(Flag.Strategy.STYLE) == Flag.NETHER;
+        int cx = width / 2;
+        int cy = height / 2;
+        List<Block> animalBlocks = new ArrayList<>();
+        for (int z = 0; z < height; z += 1) {
+            for (int x = 0; x < width; x += 1) {
+                Facing facing;
+                if (x == 0) {
+                    facing = Facing.WEST;
+                } else if (x == width - 1) {
+                    facing = Facing.EAST;
+                } else if (z == 0) {
+                    facing = Facing.NORTH;
+                } else {
+                    facing = Facing.SOUTH;
+                }
+                boolean outerX, outerZ, isWall, isCorner;
+                outerX = x == 0 || x == width - 1;
+                outerZ = z == 0 || z == height - 1;
+                isCorner = outerX && outerZ;
+                Orientation ori = outerX ? Orientation.VERTICAL : Orientation.HORIZONTAL;
+                isWall = !isCorner && (outerX || outerZ);
+                Tile tile, tileBelow, tileAbove;
+                Block block = offset.getRelative(x, 0, z);
+                boolean isGate = false;
+                if (isCorner) {
+                    tile = style.cornerTop.orient(ori);
+                    tileBelow = style.cornerBase;
+                    tileAbove = style.corner;
+                } else if (isWall) {
+                    tile = style.wallTop.orient(ori);
+                    tileBelow = style.wall;
+                    if (x == cx || z == cy) {
+                        tileAbove = style.gate.face(facing);
+                        isGate = true;
+                    } else {
+                        tileAbove = style.fence;
+                    }
+                } else {
+                    tile = Tile.GRASS;
+                    tileBelow = style.foundation;
+                    tileAbove = Tile.AIR;
+                    if (x > 1 && x < width - 2 && z > 1 && z < height - 2) {
+                        animalBlocks.add(block.getRelative(0, 1, 0));
+                    }
+                }
+                Block foundation = block.getRelative(0, -1, 0);
+                while (!foundation.getType().isSolid()) {
+                    tileBelow.setBlock(foundation);
+                    foundation = foundation.getRelative(0, -1, 0);
+                }
+                Block upper = block.getRelative(0, 1, 0);
+                while (upper.getType() != Material.AIR) {
+                    Tile.AIR.setBlock(upper);
+                    upper = upper.getRelative(0, 1, 0);
+                }
+                tile.setBlock(block);
+                tileAbove.setBlock(block.getRelative(0, 1, 0));
+                if (isCorner) {
+                    style.lamp.setBlock(block.getRelative(0, 2, 0));
+                    style.slab.setBlock(block.getRelative(0, 3, 0));
+                } else if (isWall && !isGate && !style.fence.isTallFence()) {
+                    style.fence.setBlock(block.getRelative(0, 2, 0));
+                }
+            }
+        }
+        if (!animalBlocks.isEmpty()) {
+            Collections.shuffle(animalBlocks, random);
+            int animalCount = (animalBlocks.size() - 1) / 6 + 1;
+            EntityType et;
+            int color = randomInt(16);
+            if (uniqueFlags.get(Flag.Strategy.STYLE) == Flag.NETHER) {
+                switch (randomInt(2)) {
+                case 0: et = EntityType.ZOMBIE_HORSE; break;
+                case 1: default: et = EntityType.SKELETON_HORSE;
+                }
+            } else {
+                switch (randomInt(8)) {
+                case 0: et = EntityType.COW; break;
+                case 1: et = EntityType.PIG; break;
+                case 2: et = EntityType.SHEEP; break;
+                case 3: et = EntityType.CHICKEN; break;
+                case 4: et = EntityType.HORSE; break;
+                case 5: et = EntityType.DONKEY; break;
+                case 6: et = EntityType.MULE; break;
+                case 7: default: et = EntityType.MUSHROOM_COW;
+                }
+            }
+            for (int i = 0; i < animalCount; i += 1) {
+                Block block = animalBlocks.get(i);
+                Entity e = block.getWorld().spawnEntity(block.getLocation().add(0.5, 0.0, 0.5), et);
+                if (e instanceof Colorable) {
+                    ((Colorable)e).setColor(DyeColor.values()[color]);
+                }
+            }
+        }
+        if (town != null) {
+            Cuboid bb = new Cuboid(offset.getX(), offset.getY(), offset.getZ(),
+                                   offset.getX() + width, offset.getY() + 3, offset.getZ() + height);
             town.structures.add(new Structure("farm", bb, Arrays.asList(bb)));
         }
     }
@@ -1075,7 +1208,7 @@ final class Generator {
         if (rooms.size() > 2) {
             List<Room> removableRooms = rooms.stream().filter(r -> r.ax == 0 || r.ay == 0 || r.bx == width || r.by == height).collect(Collectors.toList());
             Collections.shuffle(removableRooms, random);
-            int removeCount = Math.min(rooms.size() - 2, 1 + random.nextInt(removableRooms.size()));
+            int removeCount = Math.min(rooms.size() - 2, 1 + randomInt(removableRooms.size()));
             for (int i = 0; i < removeCount; i += 1) {
                 Room room = removableRooms.get(i);
                 rooms.remove(room);
@@ -1102,7 +1235,7 @@ final class Generator {
         }
         // Insert doors
         Collections.shuffle(rooms, random);
-        int totalOutsideDoors = 1 + random.nextInt(3);
+        int totalOutsideDoors = 1 + randomInt(3);
         for (Room room: rooms) {
             Set<Room> connectedRooms = roomConnections.get(room);
             if (connectedRooms == null) {
@@ -1195,7 +1328,7 @@ final class Generator {
         if (width <= 6 || height <= 6) {
             result.add(room);
             return result;
-        } else if (width < 10 && height < 10 && random.nextInt(3) == 0) {
+        } else if (width < 10 && height < 10 && randomInt(3) == 0) {
             result.add(room);
             return result;
         } else if (width > height) {
@@ -1208,13 +1341,13 @@ final class Generator {
             ori = Orientation.VERTICAL;
         }
         if (ori == Orientation.HORIZONTAL) {
-            int split = 3 + random.nextInt(width - 6);
+            int split = 3 + randomInt(width - 6);
             result.addAll(splitRoom(new Room(room.ax, room.ay,
                                              room.ax + split, room.by)));
             result.addAll(splitRoom(new Room(room.ax + split, room.ay,
                                              room.bx, room.by)));
         } else {
-            int split = 3 + random.nextInt(height - 6);
+            int split = 3 + randomInt(height - 6);
             result.addAll(splitRoom(new Room(room.ax, room.ay,
                                              room.bx, room.ay + split)));
             result.addAll(splitRoom(new Room(room.ax, room.ay + split,
@@ -1338,6 +1471,8 @@ final class Generator {
         QUARTZ(Strategy.STYLE),
         PURPUR(Strategy.STYLE),
         NETHER(Strategy.STYLE, true),
+        PRISMARINE(Strategy.STYLE),
+        IRON(Strategy.STYLE),
 
         NO_ROOF(Strategy.RANDOM),
         NO_BASE(Strategy.RANDOM),
@@ -1380,6 +1515,8 @@ final class Generator {
         final Tile roofStair, roofSlab, roofDoubleSlab;
         final Tile pillar, window;
         final Tile stair, slab, fence;
+        Tile lamp = Tile.GLOWSTONE;
+        Tile gate = Tile.OAK_FENCE_GATE;
         final int baseLevel;
         final double randomWallChance;
         Tile floorAlt, ceilingAlt;
@@ -1413,10 +1550,11 @@ final class Generator {
                 roofSlab = Tile.JUNGLE_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_JUNGLE_WOOD_SLAB;
                 floor = ceiling = Tile.OAK_PLANKS;
-                pillar = fence = Tile.BIRCH_FENCE;
+                pillar = fence = Tile.SPRUCE_FENCE;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.SANDSTONE_SLAB;
                 stair = Tile.SANDSTONE_STAIRS;
+                gate = Tile.SPRUCE_FENCE_GATE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1451,6 +1589,7 @@ final class Generator {
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.QUARTZ_SLAB;
                 stair = Tile.QUARTZ_STAIRS;
+                gate = Tile.BIRCH_FENCE_GATE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1467,6 +1606,7 @@ final class Generator {
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.BRICK_SLAB;
                 stair = Tile.BRICK_STAIRS;
+                gate = Tile.SPRUCE_FENCE_GATE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1483,6 +1623,7 @@ final class Generator {
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.BRICK_SLAB;
                 stair = Tile.BRICK_STAIRS;
+                gate = Tile.SPRUCE_FENCE_GATE;
                 baseLevel = 0;
                 randomWallChance = 0.5;
                 break;
@@ -1500,6 +1641,7 @@ final class Generator {
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.OAK_WOOD_SLAB;
                 stair = Tile.OAK_WOOD_STAIRS;
+                gate = Tile.OAK_FENCE_GATE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1517,6 +1659,7 @@ final class Generator {
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.SPRUCE_WOOD_SLAB;
                 stair = Tile.SPRUCE_WOOD_STAIRS;
+                gate = Tile.SPRUCE_FENCE_GATE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1534,6 +1677,7 @@ final class Generator {
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.BIRCH_WOOD_SLAB;
                 stair = Tile.BIRCH_WOOD_STAIRS;
+                gate = Tile.BIRCH_FENCE_GATE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1551,6 +1695,7 @@ final class Generator {
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.JUNGLE_WOOD_SLAB;
                 stair = Tile.JUNGLE_WOOD_STAIRS;
+                gate = Tile.JUNGLE_FENCE_GATE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1568,6 +1713,7 @@ final class Generator {
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.ACACIA_WOOD_SLAB;
                 stair = Tile.ACACIA_WOOD_STAIRS;
+                gate = Tile.ACACIA_FENCE_GATE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1585,6 +1731,7 @@ final class Generator {
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.DARK_OAK_WOOD_SLAB;
                 stair = Tile.DARK_OAK_WOOD_STAIRS;
+                gate = Tile.DARK_OAK_FENCE_GATE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
                 break;
@@ -1710,8 +1857,43 @@ final class Generator {
                 pillar = fence = window = Tile.NETHER_BRICK_FENCE;
                 slab = Tile.NETHER_BRICK_SLAB;
                 stair = Tile.NETHER_BRICK_STAIRS;
+                gate = Tile.DARK_OAK_FENCE_GATE;
                 baseLevel = 1;
                 randomWallChance = -1.0;
+                break;
+            case PRISMARINE:
+                wall = foundation = Tile.PRISMARINE;
+                wallRandom = Tile.MOSSY_COBBLESTONE;
+                floor = ceiling = Tile.DARK_PRISMARINE;
+                corner = Tile.ACACIA_LOG;
+                cornerBase = Tile.MOSSY_STONE_BRICKS;
+                cornerTop = Tile.SEA_LANTERN;
+                wallBase = wallTop = Tile.PRISMARINE_BRICKS;
+                roofStair = Tile.SPRUCE_WOOD_STAIRS;
+                roofSlab = Tile.SPRUCE_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_SPRUCE_WOOD_SLAB;
+                window = Tile.STAINED_GLASS_PANE.or(color);
+                pillar = fence = Tile.COBBLESTONE_WALL;
+                slab = Tile.SPRUCE_WOOD_SLAB;
+                stair = Tile.SPRUCE_WOOD_STAIRS;
+                gate = Tile.OAK_FENCE_GATE;
+                lamp = Tile.SEA_LANTERN;
+                baseLevel = 1;
+                randomWallChance = 0.25;
+                break;
+            case IRON:
+                wall = foundation = Tile.STONE_BRICKS;
+                wallRandom = Tile.CRACKED_STONE_BRICKS;
+                floor = ceiling = Tile.COBBLESTONE;
+                cornerBase = cornerTop = wallBase = wallTop = Tile.IRON_BLOCK;
+                corner = Tile.COBBLESTONE;
+                window = pillar = fence = Tile.IRON_BARS;
+                slab = roofSlab = Tile.COBBLESTONE_SLAB;
+                stair = roofStair = Tile.COBBLESTONE_STAIRS;
+                roofDoubleSlab = Tile.DOUBLE_COBBLESTONE_SLAB;
+                gate = Tile.OAK_FENCE_GATE;
+                baseLevel = 1;
+                randomWallChance = 0.25;
                 break;
             case COBBLE:
             default:

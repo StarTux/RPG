@@ -152,6 +152,13 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
             } else if (structure.equals("farm")) {
                 generator.plantFarm(player.getLocation().getBlock().getRelative(-size / 2, 0, -size / 2), size, size);
                 sender.sendMessage("Farm generated");
+            } else if (structure.equals("pasture")) {
+                generator.plantPasture(player.getLocation().getBlock().getRelative(-size / 2, 0, -size / 2), size, size);
+                sender.sendMessage("Pasture generated");
+            } else if (structure.equals("name")) {
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < 20; i += 1) sb.append(" ").append(generator.generateName(size));
+                sender.sendMessage("Random names with " + size + " syllables: " + sb.toString());
             } else {
                 sender.sendMessage("Unknown structure: '" + structure + "'");
             }
@@ -201,7 +208,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
             return Arrays.asList("tp", "whereami", "gen", "givedelivery", "rep").stream().filter(i -> i.startsWith(term)).collect(Collectors.toList());
         } else if ("gen".equals(cmd) && args.length == 2) {
             String term = args[1].toLowerCase();
-            return Arrays.asList("town", "house", "fountain").stream().filter(i -> i.startsWith(term)).collect(Collectors.toList());
+            return Arrays.asList("town", "house", "fountain", "name").stream().filter(i -> i.startsWith(term)).collect(Collectors.toList());
         } else if ("gen".equals(cmd) && args.length >= 4) {
             String term = args[args.length - 1].toLowerCase();
             return Arrays.asList(Generator.Flag.values()).stream().filter(f -> f.name().toLowerCase().startsWith(term)).map(f -> f.name()).collect(Collectors.toList());
@@ -249,7 +256,6 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         if (rpgWorld == null) return;
         RPGWorld.Belonging belonging = rpgWorld.getBelongingAt(block);
         if (belonging == null || belonging.town == null) return;
-        belonging.town.visit();
         Player player = event.getPlayer();
         if (!allowedGameModes.contains(player.getGameMode())) return;
         if (belonging.rooms.isEmpty()) return;
@@ -277,7 +283,6 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         if (rpgWorld == null) return;
         RPGWorld.Belonging belonging = rpgWorld.getBelongingAt(block);
         if (belonging == null || belonging.town == null) return;
-        belonging.town.visit();
         Player player = event.getPlayer();
         if (!allowedGameModes.contains(player.getGameMode())) return;
         if (belonging.rooms.isEmpty()) return;

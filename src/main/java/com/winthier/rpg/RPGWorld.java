@@ -330,7 +330,7 @@ final class RPGWorld {
 
     boolean tryToAddTown() {
         Generator generator = new Generator(plugin);
-        int size = 8 + generator.random.nextInt(8);
+        int size = 8 + generator.randomInt(8);
         Generator.Town gt = generator.tryToPlantTown(world, size);
         if (gt == null) {
             return false;
@@ -350,7 +350,7 @@ final class RPGWorld {
         for (Fraction fraction: Fraction.values()) {
             for (int i = 0; i < fraction.chance; i += 1) fractions.add(fraction);
         }
-        Fraction fraction = fractions.get(generator.random.nextInt(fractions.size()));
+        Fraction fraction = fractions.get(generator.randomInt(fractions.size()));
         Set<Generator.Flag> flags = EnumSet.noneOf(Generator.Flag.class);
         Generator.Flag flagStyle;
         if (fraction == Fraction.NETHER) {
@@ -360,12 +360,12 @@ final class RPGWorld {
             for (Generator.Flag flag: Generator.Flag.values()) {
                 if (flag.strategy == Generator.Flag.Strategy.STYLE && !flag.rare) styleFlags.add(flag);
             }
-            flagStyle = styleFlags.get(generator.random.nextInt(styleFlags.size()));
+            flagStyle = styleFlags.get(generator.randomInt(styleFlags.size()));
         }
         flags.add(flagStyle);
         flags.add(Generator.Flag.SURFACE);
         int townId = towns.size();
-        String townName = generateUniqueName(generator, 1 + generator.random.nextInt(2));
+        String townName = generateUniqueName(generator, 1 + generator.randomInt(2));
         Town town = new Town(area, townName, fraction);
         town.tags.addAll(flags.stream().map(f -> f.name().toLowerCase()).collect(Collectors.toList()));
         gt.townId = townId;
@@ -389,37 +389,37 @@ final class RPGWorld {
             town.houses.add(new House(gs.name, gs.boundingBox, gs.boundingBoxes));
         }
         // Quests
-        int totalQuests = Math.min(town.npcs.size(), 3 + generator.random.nextInt(3));
+        int totalQuests = Math.min(town.npcs.size(), 3 + generator.randomInt(3));
         for (int i = 0; i < totalQuests; i += 1) {
-            Quest.Type questType = Quest.Type.values()[generator.random.nextInt(Quest.Type.values().length)];
+            Quest.Type questType = Quest.Type.values()[generator.randomInt(Quest.Type.values().length)];
             Map<String, String> questSettings = new HashMap<>();
             int questAmount;
             switch (questType) {
             case KILL:
-                switch (generator.random.nextInt(4)) {
+                switch (generator.randomInt(4)) {
                 case 0: questSettings.put("entity_type", "zombie"); break;
                 case 1: questSettings.put("entity_type", "spider"); break;
                 case 2: questSettings.put("entity_type", "creeper"); break;
                 case 3: default: questSettings.put("entity_type", "skeleton");
                 }
-                questAmount = 5 + generator.random.nextInt(15);
+                questAmount = 5 + generator.randomInt(15);
                 break;
             case SHEAR:
                 questSettings.put("entity_type", "sheep");
-                questAmount = 5 + generator.random.nextInt(25);
+                questAmount = 5 + generator.randomInt(25);
                 break;
             case BREAK:
-                switch (generator.random.nextInt(5)) {
+                switch (generator.randomInt(5)) {
                 case 0: questSettings.put("material", "sand"); break;
                 case 1: questSettings.put("material", "diamond_ore"); break;
                 case 2: questSettings.put("material", "iron_ore"); break;
                 case 3: questSettings.put("material", "gold_ore"); break;
                 case 4: default: questSettings.put("material", "coal_ore");
                 }
-                questAmount = 5 + generator.random.nextInt(35);
+                questAmount = 5 + generator.randomInt(35);
                 break;
             case FISH:
-                questAmount = 5 + generator.random.nextInt(5);
+                questAmount = 5 + generator.randomInt(5);
                 break;
             default:
                 questAmount = 42;
@@ -446,7 +446,7 @@ final class RPGWorld {
         for (Vec3 vec: vecs) {
             int npcId = town.npcs.size();
             NPC npc = new NPC(vec);
-            npc.name = generateUniqueName(generator, 1 + generator.random.nextInt(2));
+            npc.name = generateUniqueName(generator, 1 + generator.randomInt(2));
             String message;
             if (npc_quests > 0) {
                 npc_quests -= 1;
@@ -462,7 +462,7 @@ final class RPGWorld {
             message = message.replace("%npc%", npc.name);
             npc.message = message;
             town.npcs.add(npc);
-            EntityType et = fraction.villagerTypes.get(generator.random.nextInt(fraction.villagerTypes.size()));
+            EntityType et = fraction.villagerTypes.get(generator.randomInt(fraction.villagerTypes.size()));
             Location loc = world.getBlockAt(vec.x, vec.y, vec.z).getLocation().add(0.5, 0.0, 0.5);
             LivingEntity living = (LivingEntity)world.spawnEntity(loc, et);
             living.setAI(false);
@@ -493,7 +493,10 @@ final class RPGWorld {
             Belonging belonging = getBelongingAt(block);
             if (belonging == null || belonging.town == null) continue;
             if (belonging.lay == Belonging.Lay.CENTRAL) {
-                belonging.town.visit();
+                if (!belonging.town.visited) {
+                    player.sendMessage("Visit " + belonging.town.name);
+                    belonging.town.visit();
+                }
             }
         }
         if (ticks % 20 == 0 && dirty) save();
@@ -582,13 +585,18 @@ final class RPGWorld {
     }
 
     static class Belonging {
-        enum Lay {
-            OUTSKIRTS, CENTRAL;
-        }
         Town town;
         Lay lay;
         House house;
         final List<Cuboid> rooms = new ArrayList<>();
+
+        enum Lay {
+            OUTSKIRTS, CENTRAL;
+        }
+
+        boolean isCentral() {
+            return lay == Lay.CENTRAL;
+        }
     }
 
     Belonging getBelongingAt(Block block) {

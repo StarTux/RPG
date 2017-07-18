@@ -130,6 +130,7 @@ enum Facing {
     public final int dataBlock;
     public final int dataStair;
     public final int dataBed;
+    public final int dataFenceGate;
     Facing rotate() {
         switch (this) {
         case NORTH: return EAST;
@@ -152,5 +153,6 @@ enum Facing {
         this.dataBlock = dataBlock;
         this.dataStair = dataStair;
         this.dataBed = dataBed;
+        this.dataFenceGate = dataBed;
     }
 }

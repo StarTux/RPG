@@ -5,9 +5,9 @@ random:
 - Have you been spelunking under this place?
 - I found a rare gem while mining.
 - My house is falling apart.
-- Hello, my name is %npc_name%.
-- They call me %npc_name%.
-- I am %npc_name%.
+- Hello, my name is %npc%.
+- They call me %npc%.
+- I am %npc%.
 - I am Error.
 - It is dangerous to go alone.
 - Nights are getting shorter.
@@ -52,18 +52,18 @@ random:
 - I hear you can befriend a creeper.
 - I hear you can keep squids as pets.
 greeting:
-- Welcome to %town_name%.
-- Salem alaikum in %town_name%.
-- What brings you to %town_name%?
-- You have discoverd %town_name%.
-- This place is called %town_name%.
-- Welcome to the proud town of %town_name%.
-- Welcome to the beautiful %town_name%.
-- Welcome to the beautiful town of %town_name%.
-- Visitors are welcome at %town_name%.
-- You have found your way to the town of %town_name%.
-- '%town_name% is steadily growing.'
-- Welcome to %town_name%™.
+- Welcome to %town%.
+- Salem alaikum in %town%.
+- What brings you to %town%?
+- You have discoverd %town%.
+- This place is called %town%.
+- Welcome to the proud town of %town%.
+- Welcome to the beautiful %town%.
+- Welcome to the beautiful town of %town%.
+- Visitors are welcome at %town%.
+- You have found your way to the town of %town%.
+- '%town% is steadily growing.'
+- Welcome to %town%™.
 town_sign:
 - Welcome to
 - Dedicated to
@@ -79,11 +79,19 @@ town_sign:
 - No littering
 - Behave in
 - Lovely
-distant_relationship: [friend, sibling, colleague, partner, associate, old friend, acquaintance, beloved friend, business partner]
-synonym_deliver: [deliver, bring, show, carry, submit]
-synonym_delivery: [letter, delivery, package, message, note, report, gift, communication, missive, bulletin]
-synonym_lives_in: [lives in, moved to, resides in, leads a humble life in, sought refuge in, tries to make a living in, is enjoying life in, now lives in, can be found in]
-synonym_a_place_called: [a town named, a place called, a village by the name of, some place they call]
-synonym_sincerely: [Sincerely, Thanks in advance, Cheers, Faithfully, Regards, Respectfully, Best, Looking Forward, Thanks, Hugs, Best wishes, See you around, Yours truly, Love, Kisses]
+distant_relationship: [friend, sibling, colleague, partner, associate, old friend, acquaintance, beloved friend, business partner, buddy, pal, pen pal]
+synonym_deliver: [deliver, bring, show, carry, submit, take]
+synonym_delivery: [letter, delivery, package, parcel, message, note, report, gift, communication, missive, bulletin, shipment]
+synonym_lives_in: [lives in, moved to, resides in, leads a humble life in, sought refuge in, tries to make a living in, is enjoying life in, now lives in, can be found in, works in, found work in, works near, found a new home in, owns a house in, built a house in]
+synonym_a_place_called: [a town named, a place called, a village by the name of, some place they call, a faraway place called, a strange place they call]
+synonym_sincerely: [Sincerely, Thanks in advance, Cheers, Faithfully, Regards, Respectfully, Best, Looking Forward, Thanks, Hugs, Best wishes, See you around, Yours truly, Love, Kisses, Hugs and kisses]
 delivery_thanks:
-- You got something... ... for me? ... ... why thank you, friend! My people will not forget this. Could you do me a favor and run another delivery to a friend of mine?
+- A letter from %sender%? Why thank you. Would you mind delivering something else for me?
+- Gasp! I was anxious for a word from %sender%. Could you please forward it to our mutual friend?
+- Well this is interesting. It needs to reach %next% immediately.
+- You bring exciting news. %next% must know about this!
+- This is good to hear! Would you deliver it to %next% for me, please?
+- I am glad %sender% let me know. Would you show this to %next%?
+- '%sender%? Writing %npc% a letter? I have no excuse to ignore %next% any longer.'
+- A note? From %sender%? To me?! Please bring this to %next%.
+- Thank you for relaying this message from %sender% to me. Could you do the same for me and %next%?

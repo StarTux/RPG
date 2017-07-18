@@ -6,12 +6,12 @@ import com.winthier.custom.entity.EntityContext;
 import com.winthier.custom.entity.EntityWatcher;
 import com.winthier.custom.entity.TickableEntity;
 import com.winthier.custom.util.Dirty;
-import com.winthier.custom.util.Msg;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.ChatColor;
@@ -31,6 +31,7 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityPortalEnterEvent;
 import org.bukkit.event.entity.EntityPortalEvent;
 import org.bukkit.event.entity.EntityTeleportEvent;
+import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -78,6 +79,11 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
     @EventHandler
     public void onEntityTeleport(EntityTeleportEvent event, EntityContext context) {
         if (((Watcher)context.getEntityWatcher()).pluginTeleport) return;
+        event.setCancelled(true);
+    }
+
+    @EventHandler
+    public void onPlayerInteractAtEntity(PlayerInteractAtEntityEvent event, EntityContext context) {
         event.setCancelled(true);
     }
 
@@ -219,11 +225,26 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
             String message = null;
             if (DeliveryItem.CUSTOM_ID.equals(itemId)) {
                 Dirty.TagWrapper config = Dirty.TagWrapper.getItemConfigOf(item);
-                if (townId == config.getInt("town_id")
-                    && npcId == config.getInt("npc_id")
-                    && player.getUniqueId().toString().equals(config.getString("owner"))) {
-                    rpgworld.updateDeliveryItem(item, player);
+                Vec2 recipient = DeliveryItem.getRecipient(item);
+                String owner = config.getString(DeliveryItem.KEY_OWNER);
+                long timestamp = config.getLong(DeliveryItem.KEY_TIMESTAMP);
+                if (timestamp == rpgworld.getTimestamp()
+                    && townId == recipient.x && npcId == recipient.y
+                    && player.getUniqueId().toString().equals(owner)) {
+                    RPGWorld.Town town = rpgworld.findTown(townId);
+                    RPGWorld.NPC npc = rpgworld.findNPC(townId, npcId);
+                    Vec2 vecSender = DeliveryItem.getSender(item);
+                    RPGWorld.NPC senderNPC = vecSender != null ? rpgworld.findNPC(vecSender.x, vecSender.y) : null;
+                    Vec2 vecNext = rpgworld.updateDeliveryItem(item, player);
+                    RPGWorld.NPC nextNPC = rpgworld.findNPC(vecNext.x, vecNext.y);
+                    String npcName = npc != null ? npc.name : "me";
+                    String nextName = nextNPC != null ? nextNPC.name : "someone";
+                    String senderName = senderNPC != null ? senderNPC.name : "The Post Office";
                     message = plugin.getMessages().deal(Messages.Type.DELIVERY_THANKS);
+                    message = message.replace("%sender%", senderName);
+                    message = message.replace("%npc%", npc.name);
+                    message = message.replace("%next%", nextNPC.name);
+                    plugin.getReputations().giveReputation(player, town.fraction, 10);
                 }
             }
             if (message == null) {
@@ -232,7 +253,7 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
             if (message == null) return;
             NPCSpeechEntity.Watcher speechWatcher = (NPCSpeechEntity.Watcher)CustomPlugin.getInstance().getEntityManager().spawnEntity(entity.getEyeLocation().add(0, 5, 0), NPCSpeechEntity.CUSTOM_ID);
             speechWatcher.setLiving(entity);
-            speechWatcher.getMessages().addAll(Msg.wrap(message, 16));
+            speechWatcher.setMessage(message);
             speechWatcher.setColor(rpgworld.towns.get(townId).fraction.color);
             talkingToPlayer = player;
         }

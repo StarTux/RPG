@@ -8,6 +8,7 @@ import com.winthier.rpg.Generator.House;
 import com.winthier.rpg.Generator.Town;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -165,6 +166,25 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
             world.updateDeliveryItem(item, target);
             Items.give(item, target);
             sender.sendMessage("Delivery book given to " + target.getName());
+        } else if (cmd.equals("rep") && args.length >= 1 && args.length <= 2) {
+            Player target;
+            if (args.length >= 2) {
+                target = getServer().getPlayerExact(args[1]);
+                if (target == null) {
+                    sender.sendMessage("Player not found: " + args[1]);
+                    return true;
+                }
+            } else {
+                if (player == null) return false;
+                target = player;
+            }
+            sender.sendMessage("Reputations of " + target.getName() + ":");
+            List<RPGWorld.Fraction> fractions = new ArrayList<>();
+            for (RPGWorld.Fraction f: RPGWorld.Fraction.values()) fractions.add(f);
+            Collections.sort(fractions, (b, a) -> Integer.compare(getReputations().getReputation(target, a), getReputations().getReputation(target, b)));
+            for (RPGWorld.Fraction fraction: fractions) {
+                sender.sendMessage("" + getReputations().getReputation(target, fraction) + ") " + fraction.name().toLowerCase());
+            }
         } else {
             return false;
         }
@@ -178,7 +198,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         if (cmd == null) return null;
         if (args.length == 1) {
             String term = args[0].toLowerCase();
-            return Arrays.asList("tp", "whereami", "gen").stream().filter(i -> i.startsWith(term)).collect(Collectors.toList());
+            return Arrays.asList("tp", "whereami", "gen", "givedelivery", "rep").stream().filter(i -> i.startsWith(term)).collect(Collectors.toList());
         } else if ("gen".equals(cmd) && args.length == 2) {
             String term = args[1].toLowerCase();
             return Arrays.asList("town", "house", "fountain").stream().filter(i -> i.startsWith(term)).collect(Collectors.toList());
@@ -233,7 +253,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         Player player = event.getPlayer();
         if (!allowedGameModes.contains(player.getGameMode())) return;
         if (belonging.rooms.isEmpty()) return;
-        getReputations().giveRepurtation(player, belonging.town.fraction, -1);
+        getReputations().giveReputation(player, belonging.town.fraction, -1);
         PotionEffect potion = player.getPotionEffect(PotionEffectType.SLOW_DIGGING);
         int level;
         int duration;

@@ -5,6 +5,7 @@ import com.winthier.custom.entity.CustomEntity;
 import com.winthier.custom.entity.EntityContext;
 import com.winthier.custom.entity.EntityWatcher;
 import com.winthier.custom.entity.TickableEntity;
+import com.winthier.custom.util.Msg;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
@@ -82,6 +83,7 @@ public final class NPCSpeechEntity implements CustomEntity, TickableEntity {
         private Watcher master;
         private int ticks = 0;
         private List<String> messages = new ArrayList<>();
+        private int messageLength;
         private ChatColor color = ChatColor.WHITE;
         private int oldshown = 0;
         private boolean teleported = false;
@@ -121,7 +123,7 @@ public final class NPCSpeechEntity implements CustomEntity, TickableEntity {
                 int shown = ticks / 2;
                 if (shown > message.length()) {
                     if (messages.size() == 1) {
-                        if (shown > message.length() * 2) {
+                        if (shown > messageLength * 2) {
                             remove();
                         }
                     } else {
@@ -130,6 +132,7 @@ public final class NPCSpeechEntity implements CustomEntity, TickableEntity {
                         master.setLiving(this.living);
                         master.setMessages(messages);
                         master.setColor(color);
+                        master.messageLength = messageLength;
                         this.living = null;
                     }
                 } else {
@@ -141,6 +144,12 @@ public final class NPCSpeechEntity implements CustomEntity, TickableEntity {
                     }
                 }
             }
+        }
+
+        void setMessage(String message) {
+            messages.clear();
+            messages.addAll(Msg.wrap(message, 16));
+            messageLength = message.length();
         }
 
         void remove() {

@@ -28,6 +28,16 @@ final class Vec2 {
     Vec2 relative(Vec2 o) {
         return new Vec2(this.x + o.x, this.y + o.y);
     }
+
+    int maxDistance(Vec2 o) {
+        return Math.max(Math.abs(x - o.x), Math.abs(y - o.y));
+    }
+
+    int distanceSquared(Vec2 o) {
+        int a = x - o.x;
+        int b = y - o.y;
+        return a * a + b * b;
+    }
 }
 
 @Value @RequiredArgsConstructor

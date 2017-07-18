@@ -32,7 +32,7 @@ final class Reputations {
         return section.getInt(fraction.name(), 0);
     }
 
-    int giveRepurtation(Player player, RPGWorld.Fraction fraction, int amount) {
+    int giveReputation(Player player, RPGWorld.Fraction fraction, int amount) {
         if (config == null) load();
         ConfigurationSection section = config.getConfigurationSection(player.getUniqueId().toString());
         if (section == null) section = config.createSection(player.getUniqueId().toString());

@@ -455,11 +455,11 @@ final class RPGWorld {
             } else if (npc_greetings > 0) {
                 npc_greetings -= 1;
                 message = plugin.getMessages().deal(Messages.Type.GREETING);
-                message = message.replace("%town_name%", town.name);
+                message = message.replace("%town%", town.name);
             } else {
                 message = plugin.getMessages().deal(Messages.Type.RANDOM);
             }
-            message = message.replace("%npc_name%", npc.name);
+            message = message.replace("%npc%", npc.name);
             npc.message = message;
             town.npcs.add(npc);
             EntityType et = fraction.villagerTypes.get(generator.random.nextInt(fraction.villagerTypes.size()));
@@ -467,7 +467,7 @@ final class RPGWorld {
             LivingEntity living = (LivingEntity)world.spawnEntity(loc, et);
             living.setAI(false);
             living.setRemoveWhenFarAway(false);
-            living.setCustomName(fraction.color + npc.name);
+            living.setCustomName("" + fraction.color + ChatColor.ITALIC + npc.name);
             NPCEntity.Watcher watcher = (NPCEntity.Watcher)CustomPlugin.getInstance().getEntityManager().wrapEntity(living, NPCEntity.CUSTOM_ID);
             watcher.setIds(townId, npcId);
             watcher.save();
@@ -544,7 +544,7 @@ final class RPGWorld {
         VILLAGER(10, Arrays.asList(EntityType.VILLAGER), ChatColor.GREEN),
         ZOMBIE_VILLAGER(5, Arrays.asList(EntityType.ZOMBIE_VILLAGER), ChatColor.DARK_GREEN),
         SKELETON(5, Arrays.asList(EntityType.SKELETON, EntityType.STRAY), ChatColor.WHITE),
-        ZOMBIE(5, Arrays.asList(EntityType.ZOMBIE, EntityType.HUSK, EntityType.ZOMBIE_VILLAGER), ChatColor.DARK_GREEN),
+        ZOMBIE(5, Arrays.asList(EntityType.ZOMBIE, EntityType.HUSK), ChatColor.DARK_GREEN),
         OCCULT(3, Arrays.asList(EntityType.WITCH, EntityType.EVOKER, EntityType.VINDICATOR), ChatColor.LIGHT_PURPLE),
         NETHER(1, Arrays.asList(EntityType.PIG_ZOMBIE, EntityType.BLAZE, EntityType.WITHER_SKELETON), ChatColor.RED),
         CREEPER(0, Arrays.asList(EntityType.CREEPER), ChatColor.DARK_GREEN);
@@ -621,20 +621,11 @@ final class RPGWorld {
     Vec2 updateDeliveryItem(ItemStack item, Player player) {
         TagWrapper config = TagWrapper.getItemConfigOf(item);
         NPC senderNPC = null;
-        Vec2 senderVec = null;
-        if (config.isSet("npc_id") && config.isSet("town_id")) {
-            senderVec = new Vec2(config.getInt("town_id"), config.getInt("npc_id"));
-            senderNPC = findNPC(senderVec.x, senderVec.y);
-        }
-        String senderName;
-        if (senderNPC == null) {
-            senderName = "The Post Office";
-        } else {
-            senderName = senderNPC.name;
-        }
+        Vec2 senderVec = config.isSet(DeliveryItem.KEY_RECIPIENT) ? new Vec2(config.getIntList(DeliveryItem.KEY_RECIPIENT)) : null;
+        senderNPC = senderVec != null ? findNPC(senderVec.x, senderVec.y) : null;
         Set<Vec2> usedNPCs = new HashSet<>();
         List<Integer> newUsed = new ArrayList<>();
-        for (Iterator<Integer> iter = config.getIntList("used").iterator(); iter.hasNext();) {
+        for (Iterator<Integer> iter = config.getIntList(DeliveryItem.KEY_USED).iterator(); iter.hasNext();) {
             int x = iter.next();
             if (iter.hasNext()) {
                 int y = iter.next();
@@ -643,7 +634,7 @@ final class RPGWorld {
                 newUsed.add(y);
             }
         }
-        if (senderVec != null) {
+        if (senderNPC != null) {
             usedNPCs.add(senderVec);
             newUsed.add(senderVec.x);
             newUsed.add(senderVec.y);
@@ -657,23 +648,29 @@ final class RPGWorld {
                 if (!usedNPCs.contains(vec)) npcs.add(vec);
             }
         }
-        if (npcs.isEmpty()) {
+        if (npcs.size() < 2) {
             return null;
         }
-        Vec2 recipientVec = npcs.get(plugin.getRandom().nextInt(npcs.size()));
-        int townId = recipientVec.x;
-        Town town = towns.get(townId);
-        int npcId = recipientVec.y;
-        NPC npc = town.npcs.get(npcId);
-        config.setIntList("used", newUsed);
-        config.setString("owner", player.getUniqueId().toString());
-        config.setLong("world_timestamp", timestamp);
-        config.setInt("town_id", townId);
-        config.setInt("npc_id", npcId);
+        Collections.shuffle(npcs, plugin.getRandom());
+        if (senderNPC == null) {
+            senderVec = npcs.get(1);
+            senderNPC = findNPC(senderVec.x, senderVec.y);
+            newUsed.add(senderVec.x);
+            newUsed.add(senderVec.y);
+        }
+        String senderName = senderNPC.name;
+        Vec2 recipientVec = npcs.get(0);
+        Town town = towns.get(recipientVec.x);
+        NPC npc = town.npcs.get(recipientVec.y);
+        config.setIntList(DeliveryItem.KEY_USED, newUsed);
+        config.setString(DeliveryItem.KEY_OWNER, player.getUniqueId().toString());
+        config.setLong(DeliveryItem.KEY_TIMESTAMP, timestamp);
+        config.setIntList(DeliveryItem.KEY_SENDER, senderVec.serialize());
+        config.setIntList(DeliveryItem.KEY_RECIPIENT, recipientVec.serialize());
         BookMeta meta = (BookMeta)item.getItemMeta();
         meta.setTitle("Deliver to " + npc.name + " in " + town.name + ".");
         meta.setPages("Dear "
-                      + player.getName() + ",\nplease "
+                      + player.getName() + ",\n\nplease "
                       + plugin.getMessages().deal(Messages.Type.SYNONYM_DELIVER) + " this "
                       + plugin.getMessages().deal(Messages.Type.SYNONYM_DELIVERY) + " to my "
                       + plugin.getMessages().deal(Messages.Type.DISTANT_RELATIONSHIP) + " "

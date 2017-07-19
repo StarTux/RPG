@@ -288,7 +288,6 @@ final class Generator {
                 int offy = height >= 13 ? 1 : 1 + randomInt(13 - height);
                 House house = generateHouse(width, height);
                 town.houses.add(house);
-                house.townId = town.townId;
                 plantHouse(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), house);
             }
         }
@@ -326,13 +325,16 @@ final class Generator {
             floorLevel = floorLevels.get(floorLevels.size() / 2);
         }
         Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
+        int color = randomInt(16);
+        int roomHeight = 4 + randomInt(3);
+        int windowHeight = 1 + randomInt(roomHeight - 3);
         house.offset = new Vec3(offset.getX(), offset.getY(), offset.getZ());
         {
             int ax, az, bx, bz;
             ax = az = Integer.MAX_VALUE;
             bx = bz = Integer.MIN_VALUE;
             int ay = floorLevel;
-            int by = floorLevel + 4;
+            int by = floorLevel + roomHeight;
             house.boundingBox = new Cuboid(ax, ay, az, bx, by, bz);
             for (Room room: house.rooms) {
                 Cuboid bb = new Cuboid(room.ax + offset.getX(), ay, room.ay + offset.getZ(),
@@ -345,9 +347,10 @@ final class Generator {
             }
             house.boundingBox = new Cuboid(ax, ay, az, bx, by, bz);
         }
-        Material matDoor;
         Flag flagDoor = uniqueFlags.get(Flag.Strategy.DOOR);
         Flag flagStyle = uniqueFlags.get(Flag.Strategy.STYLE);
+        Style style = new Style(flagStyle, color);
+        Material matDoor;
         switch (flagDoor) {
         case RANDOM:
             switch (flagStyle) {
@@ -379,10 +382,6 @@ final class Generator {
         case SPRUCE_DOOR: matDoor = Material.SPRUCE_DOOR; break;
         case OAK_DOOR: default: matDoor = Material.WOODEN_DOOR;
         }
-        int color = randomInt(16);
-        int roomHeight = 4 + randomInt(3);
-        int windowHeight = 1 + randomInt(roomHeight - 3);
-        Style style = new Style(flagStyle, color);
         for (Vec2 vec: tiles.keySet()) {
             Block floor = offset.getRelative(vec.x, 0, vec.y);
             RoomTile tile = tiles.get(vec);
@@ -641,7 +640,7 @@ final class Generator {
                         torches -= 1;
                         style.torch.facing(facing).setBlockNoPhysics(floor.getRelative(0, window ? 1 : 2, 0));
                     } else {
-                        switch (randomInt(24)) {
+                        switch (randomInt(25)) {
                         case 0:
                             if (!window) floor.getRelative(0, 3, 0).setType(Material.BOOKSHELF);
                             // fallthrough
@@ -743,7 +742,6 @@ final class Generator {
                             Tile.of(Material.LADDER, facing.dataBlock).setBlock(floor.getRelative(0, 1, 0));
                             break;
                         case 23:
-                        default:
                             Vec2 nbor = vec.relative(facing.rotate().vector);
                             if (decl.contains(nbor) && tiles.get(nbor) == RoomTile.FLOOR) {
                                 tiles.put(nbor, RoomTile.DECORATION);
@@ -765,6 +763,50 @@ final class Generator {
                                 style.stair.or(facing.dataStair).setBlock(floor.getRelative(0, 1, 0));
                             }
                             break;
+                        case 24:
+                        default:
+                            Tile tile;
+                            switch (color) {
+                            case 0: tile = Tile.of(Material.WHITE_SHULKER_BOX, 1); break;
+                            case 1: tile = Tile.of(Material.ORANGE_SHULKER_BOX, 1); break;
+                            case 2: tile = Tile.of(Material.MAGENTA_SHULKER_BOX, 1); break;
+                            case 3: tile = Tile.of(Material.LIGHT_BLUE_SHULKER_BOX, 1); break;
+                            case 4: tile = Tile.of(Material.YELLOW_SHULKER_BOX, 1); break;
+                            case 5: tile = Tile.of(Material.LIME_SHULKER_BOX, 1); break;
+                            case 6: tile = Tile.of(Material.PINK_SHULKER_BOX, 1); break;
+                            case 7: tile = Tile.of(Material.GRAY_SHULKER_BOX, 1); break;
+                            case 8: tile = Tile.of(Material.SILVER_SHULKER_BOX, 1); break;
+                            case 9: tile = Tile.of(Material.CYAN_SHULKER_BOX, 1); break;
+                            case 10: tile = Tile.of(Material.PURPLE_SHULKER_BOX, 1); break;
+                            case 11: tile = Tile.of(Material.BLUE_SHULKER_BOX, 1); break;
+                            case 12: tile = Tile.of(Material.BROWN_SHULKER_BOX, 1); break;
+                            case 13: tile = Tile.of(Material.GREEN_SHULKER_BOX, 1); break;
+                            case 14: tile = Tile.of(Material.RED_SHULKER_BOX, 1); break;
+                            case 15: default: tile = Tile.of(Material.BLACK_SHULKER_BOX, 1);
+                            }
+                            tile.setBlock(floor.getRelative(0, 1, 0));
+                            break;
+                        }
+                    }
+                }
+                // Vec2 carpetSize = new Vec2(randomInt(room.width() - 3), randomInt(room.height() - 3));
+                int carpetX = randomInt(room.width() - 3);
+                int carpetY = randomInt(room.height() - 4);
+                if (carpetX > 0 && carpetY > 0) {
+                    int offx = 2 + randomInt(room.width() - 3 - carpetX);
+                    int offy = 2 + randomInt(room.height() - 3 - carpetY);
+                    Tile tile = Tile.of(Material.CARPET, color);
+                    int cax = room.ax + offx;
+                    int cay = room.ay + offy;
+                    int cbx = cax + carpetX - 1;
+                    int cby = cay + carpetY - 1;
+                    for (int y = cay; y <= cby; y += 1) {
+                        for (int x = cax; x <= cbx; x += 1) {
+                            house.tiles.put(new Vec2(x, y), RoomTile.CARPET);
+                            Block block = offset.getRelative(x, 1, y);
+                            if (block.getType() == Material.AIR) {
+                                tile.setBlock(block);
+                            }
                         }
                     }
                 }
@@ -878,6 +920,11 @@ final class Generator {
             Vec2 vec = possibleNPCSpots.get(i);
             house.tiles.put(vec, RoomTile.NPC);
             house.npcs.add(house.offset.relative(vec.x, 1, vec.y));
+        }
+        if (town != null) {
+            town.structs.add(new Struct(Struct.Type.HOUSE, house.boundingBox,
+                                        house.rooms.stream().map(r -> new Struct(Struct.Type.ROOM, r.boundingBox, null, null)).collect(Collectors.toList()),
+                                        null));
         }
     }
 
@@ -993,9 +1040,9 @@ final class Generator {
         sign.setLine(3, underscore);
         sign.update();
         if (town != null) {
-            Cuboid bb = new Cuboid(offset.getX(), offset.getY() - 16, offset.getZ(),
+            Cuboid bb = new Cuboid(offset.getX(), offset.getY() - 4, offset.getZ(),
                                    offset.getX() + size, offset.getY() + height, offset.getZ() + size);
-            town.structures.add(new Structure("fountain", bb, Arrays.asList(bb)));
+            town.structs.add(new Struct(Struct.Type.FOUNTAIN, bb, null, null));
         }
     }
 
@@ -1013,15 +1060,26 @@ final class Generator {
         Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), 0);
         boolean nether = uniqueFlags.get(Flag.Strategy.STYLE) == Flag.NETHER;
         Tile fruit, soil;
+        String cropName;
         if (nether) {
             fruit = Tile.of(Material.NETHER_WARTS, 3);
             soil = Tile.of(Material.SOUL_SAND);
+            cropName = "nether_wart";
         } else {
             switch (randomInt(5)) {
-            case 0: fruit = Tile.of(Material.BEETROOT_BLOCK, 3); break;
-            case 1: fruit = Tile.of(Material.CARROT, 7); break;
-            case 2: fruit = Tile.of(Material.POTATO, 7); break;
-            case 3: default: fruit = Tile.of(Material.CROPS, 7);
+            case 0:
+                fruit = Tile.of(Material.BEETROOT_BLOCK, 3);
+                cropName = "beetroot";
+                break;
+            case 1: fruit = Tile.of(Material.CARROT, 7);
+                cropName = "carrot";
+                break;
+            case 2: fruit = Tile.of(Material.POTATO, 7);
+                cropName = "potato";
+                break;
+            case 3: default:
+                fruit = Tile.of(Material.CROPS, 7);
+                cropName = "wheat";
             }
             soil = Tile.of(Material.SOIL, 7);
         }
@@ -1079,8 +1137,13 @@ final class Generator {
         }
         if (town != null) {
             Cuboid bb = new Cuboid(offset.getX(), offset.getY(), offset.getZ(),
-                                   offset.getX() + width, offset.getY() + 3, offset.getZ() + height);
-            town.structures.add(new Structure("farm", bb, Arrays.asList(bb)));
+                                   offset.getX() + width - 1, offset.getY() + 3, offset.getZ() + height - 1);
+            Cuboid bb2 = new Cuboid(offset.getX() + 1, offset.getY() + 1, offset.getZ() + 1,
+                                    offset.getX() + width - 2, offset.getY() + 1, offset.getZ() + height - 2);
+            Struct struct = new Struct(Struct.Type.FARM, bb,
+                                       Arrays.asList(new Struct(Struct.Type.CROPS, bb2, null, null)),
+                                       Arrays.asList(cropName));
+            town.structs.add(struct);
         }
     }
 
@@ -1194,8 +1257,8 @@ final class Generator {
         }
         if (town != null) {
             Cuboid bb = new Cuboid(offset.getX(), offset.getY(), offset.getZ(),
-                                   offset.getX() + width, offset.getY() + 3, offset.getZ() + height);
-            town.structures.add(new Structure("farm", bb, Arrays.asList(bb)));
+                                   offset.getX() + width - 1, offset.getY() + 3, offset.getZ() + height - 1);
+            town.structs.add(new Struct(Struct.Type.PASTURE, bb, null, null));
         }
     }
 
@@ -1328,7 +1391,7 @@ final class Generator {
         if (width <= 6 || height <= 6) {
             result.add(room);
             return result;
-        } else if (width < 10 && height < 10 && randomInt(3) == 0) {
+        } else if (width <= 8 && height <= 8 && randomInt(3) > 0) {
             result.add(room);
             return result;
         } else if (width > height) {
@@ -1399,11 +1462,11 @@ final class Generator {
         public Cuboid boundingBox;
 
         int width() {
-            return Math.abs(ax - bx) + 1;
+            return bx - ax + 1;
         }
 
         int height() {
-            return Math.abs(ay - by) + 1;
+            return by - ay + 1;
         }
     }
 
@@ -1415,7 +1478,6 @@ final class Generator {
         final List<Vec3> npcs = new ArrayList<>();
         public Vec3 offset;
         public Cuboid boundingBox;
-        int townId;
     }
 
     @RequiredArgsConstructor
@@ -1423,20 +1485,12 @@ final class Generator {
         final int ax, ay, bx, by;
         final List<Vec2> chunks;
         final List<House> houses = new ArrayList<>();
-        final List<Structure> structures = new ArrayList<>();
-        int townId;
+        final List<Struct> structs = new ArrayList<>();
         String name;
     }
 
-    @RequiredArgsConstructor
-    static final class Structure {
-        final String name;
-        final Cuboid boundingBox;
-        final List<Cuboid> boundingBoxes;
-    }
-
     enum RoomTile {
-        WALL("|"), FLOOR("."), DOOR("+"), WINDOW("o"), DECORATION("T"), NPC("@");
+        WALL("|"), FLOOR("."), DOOR("+"), WINDOW("o"), DECORATION("T"), NPC("@"), CARPET("C");
         public final String stringIcon;
         RoomTile(String icon) {
             this.stringIcon = icon;
@@ -1473,6 +1527,7 @@ final class Generator {
         NETHER(Strategy.STYLE, true),
         PRISMARINE(Strategy.STYLE),
         IRON(Strategy.STYLE),
+        WOOL(Strategy.STYLE),
 
         NO_ROOF(Strategy.RANDOM),
         NO_BASE(Strategy.RANDOM),
@@ -1758,7 +1813,27 @@ final class Generator {
                 wallTop = Tile.SPRUCE_LOG.or(4);
                 corner = cornerBase = Tile.STONE_BRICKS;
                 cornerTop = Tile.CHISELED_STONE_BRICKS;
-                floor = ceiling = Tile.SPRUCE_PLANKS;
+                ceiling = Tile.SPRUCE_PLANKS;
+                int floorOri1 = random.nextInt(4);
+                switch (color) {
+                case 0: floor = Tile.of(Material.WHITE_GLAZED_TERRACOTTA, floorOri1); break;
+                case 1: floor = Tile.of(Material.ORANGE_GLAZED_TERRACOTTA, floorOri1); break;
+                case 2: floor = Tile.of(Material.MAGENTA_GLAZED_TERRACOTTA, floorOri1); break;
+                case 3: floor = Tile.of(Material.LIGHT_BLUE_GLAZED_TERRACOTTA, floorOri1); break;
+                case 4: floor = Tile.of(Material.YELLOW_GLAZED_TERRACOTTA, floorOri1); break;
+                case 5: floor = Tile.of(Material.LIME_GLAZED_TERRACOTTA, floorOri1); break;
+                case 6: floor = Tile.of(Material.PINK_GLAZED_TERRACOTTA, floorOri1); break;
+                case 7: floor = Tile.of(Material.GRAY_GLAZED_TERRACOTTA, floorOri1); break;
+                case 8: floor = Tile.of(Material.SILVER_GLAZED_TERRACOTTA, floorOri1); break;
+                case 9: floor = Tile.of(Material.CYAN_GLAZED_TERRACOTTA, floorOri1); break;
+                case 10: floor = Tile.of(Material.PURPLE_GLAZED_TERRACOTTA, floorOri1); break;
+                case 11: floor = Tile.of(Material.BLUE_GLAZED_TERRACOTTA, floorOri1); break;
+                case 12: floor = Tile.of(Material.BROWN_GLAZED_TERRACOTTA, floorOri1); break;
+                case 13: floor = Tile.of(Material.GREEN_GLAZED_TERRACOTTA, floorOri1); break;
+                case 14: floor = Tile.of(Material.RED_GLAZED_TERRACOTTA, floorOri1); break;
+                case 15: default: floor = Tile.of(Material.BLACK_GLAZED_TERRACOTTA, floorOri1);
+                }
+                floorAlt = floor.with((random.nextInt(3) + floorOri1) % 4);
                 roofStair = Tile.SPRUCE_WOOD_STAIRS;
                 roofSlab = Tile.SPRUCE_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_SPRUCE_WOOD_SLAB;
@@ -1898,6 +1973,23 @@ final class Generator {
                 torch = Tile.of(Material.REDSTONE_TORCH_ON);
                 baseLevel = 1;
                 randomWallChance = 0.25;
+                break;
+            case WOOL:
+                wall = wallRandom = foundation = Tile.WOOL.or(color);
+                wallBase = Tile.COBBLESTONE;
+                wallTop = Tile.OAK_LOG.or(4);
+                floor = ceiling = Tile.OAK_PLANKS;
+                corner = cornerBase = Tile.OAK_LOG;
+                cornerTop = Tile.CHISELED_STONE_BRICKS;
+                roofStair = Tile.OAK_WOOD_STAIRS;
+                roofSlab = Tile.OAK_WOOD_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_OAK_WOOD_SLAB;
+                pillar = fence = Tile.OAK_FENCE;
+                window = Tile.of(Material.STAINED_GLASS_PANE, color);
+                slab = Tile.OAK_WOOD_SLAB;
+                stair = Tile.OAK_WOOD_STAIRS;
+                baseLevel = 1;
+                randomWallChance = -1.0;
                 break;
             case COBBLE:
             default:

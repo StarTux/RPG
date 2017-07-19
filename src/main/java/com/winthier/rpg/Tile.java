@@ -36,6 +36,10 @@ final class Tile {
         return of(mat, 0);
     }
 
+    Tile with(int newData) {
+        return of(mat, newData);
+    }
+
     Tile orient(Orientation orient) {
         switch (mat) {
         case LOG:
@@ -86,6 +90,21 @@ final class Tile {
         case REDSTONE_TORCH_OFF:
         case TORCH:
             return of(mat, facing.dataTorch);
+        case RED_SANDSTONE_STAIRS:
+        case WOOD_STAIRS:
+        case SPRUCE_WOOD_STAIRS:
+        case BIRCH_WOOD_STAIRS:
+        case JUNGLE_WOOD_STAIRS:
+        case ACACIA_STAIRS:
+        case DARK_OAK_STAIRS:
+        case BRICK_STAIRS:
+        case COBBLESTONE_STAIRS:
+        case NETHER_BRICK_STAIRS:
+        case PURPUR_STAIRS:
+        case QUARTZ_STAIRS:
+        case SANDSTONE_STAIRS:
+        case SMOOTH_STAIRS:
+            return of(mat, facing.dataStair);
         default:
             return this;
         }
@@ -130,7 +149,7 @@ final class Tile {
     static final Tile CONCRETE = of(Material.CONCRETE);
     static final Tile CONCRETE_POWDER = of(Material.CONCRETE_POWDER);
     static final Tile TERRACOTTA = of(Material.STAINED_CLAY);
-    static final Tile STAINED_GLASS_PANE = of(Material.THIN_GLASS);
+    static final Tile STAINED_GLASS_PANE = of(Material.STAINED_GLASS_PANE);
 
     static final Tile PURPUR_BLOCK = of(Material.PURPUR_BLOCK);
     static final Tile PURPUR_PILLAR = of(Material.PURPUR_PILLAR);
@@ -258,6 +277,8 @@ final class Tile {
     static final Tile SEA_LANTERN = of(Material.SEA_LANTERN);
     static final Tile END_ROD = of(Material.END_ROD);
     static final Tile TORCH = of(Material.TORCH);
+
+    static final Tile WOOL = of(Material.WOOL);
 
     void setBlock(Block block) {
         block.setTypeIdAndData(mat.getId(), (byte)data, true);

@@ -133,7 +133,7 @@ final class Generator {
     }
 
     Town tryToPlantTown(World world, int sizeInChunks) {
-        double size = world.getWorldBorder().getSize() * 0.5;
+        double size = world.getWorldBorder().getSize() * 0.5 - 128.0;
         Block blockMin = world.getWorldBorder().getCenter().add(-size, 0, -size).getBlock();
         Block blockMax = world.getWorldBorder().getCenter().add(size, 0, size).getBlock();
         int x = blockMin.getX() + randomInt(blockMax.getX() - blockMin.getX());
@@ -245,11 +245,7 @@ final class Generator {
             }
             Collections.sort(ys);
             Block block = world.getBlockAt(vec.x, ys.get(ys.size() / 2), vec.y);
-            Block upper = block.getRelative(0, 1, 0);
-            while (upper.getType() != Material.AIR) {
-                upper.setType(Material.AIR);
-                upper = upper.getRelative(0, 1, 0);
-            }
+            for (int i = 1; i <= 2; i += 1) block.getRelative(0, i, 0).setType(Material.AIR);
             Tile.of(Material.DIRT).setBlockNoPhysics(block.getRelative(0, -1, 0));
             Tile.of(Material.GRASS_PATH).setBlockNoPhysics(block);
         }
@@ -263,7 +259,7 @@ final class Generator {
             }
             if (fountains > 0) {
                 fountains -= 1;
-                int size = 3 + randomInt(4);
+                int size = 4 + randomInt(2);
                 int offx = 1 + randomInt(14 - size);
                 int offy = 1 + randomInt(14 - size);
                 plantFountain(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), size);
@@ -282,8 +278,8 @@ final class Generator {
                 int offy = 1 + randomInt(14 - height);
                 plantPasture(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), width, height);
             } else {
-                int width = 10 + randomInt(5) - randomInt(6);
-                int height = 10 + randomInt(5) - randomInt(6);
+                int width = 10 + randomInt(5) - randomInt(3);
+                int height = 10 + randomInt(5) - randomInt(3);
                 int offx = width >= 13 ? 1 : 1 + randomInt(13 - width);
                 int offy = height >= 13 ? 1 : 1 + randomInt(13 - height);
                 House house = generateHouse(width, height);
@@ -397,13 +393,6 @@ final class Generator {
             boolean tileIsCorner = tileIsWall && ((eastIsWall && southIsWall) || (southIsWall && westIsWall) || (westIsWall && northIsWall) || (northIsWall && eastIsWall));
             Orientation ori = eastIsWall || westIsWall ? Orientation.HORIZONTAL : Orientation.VERTICAL;
             // Make a base
-            if (flagAltitude != Flag.UNDERGROUND && flagAltitude != Flag.HERE) {
-                Block upper = floor.getRelative(0, 1, 0);
-                while (upper.getType() != Material.AIR) {
-                    upper.setType(Material.AIR);
-                    upper = upper.getRelative(0, 1, 0);
-                }
-            }
             if (!noBase) {
                 Block block = floor.getRelative(0, -1, 0);
                 while (true) {
@@ -802,7 +791,6 @@ final class Generator {
                     int cby = cay + carpetY - 1;
                     for (int y = cay; y <= cby; y += 1) {
                         for (int x = cax; x <= cbx; x += 1) {
-                            house.tiles.put(new Vec2(x, y), RoomTile.CARPET);
                             Block block = offset.getRelative(x, 1, y);
                             if (block.getType() == Material.AIR) {
                                 tile.setBlock(block);
@@ -939,7 +927,7 @@ final class Generator {
         Collections.sort(highest);
         int floorLevel = highest.get(highest.size() / 2);
         Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
-        Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), 0);
+        Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), random.nextInt(16));
         int height = 4 + randomInt(3);
         boolean nether = uniqueFlags.get(Flag.Strategy.STYLE) == Flag.NETHER;
         int waterLevel = 1 + randomInt(14);
@@ -1057,7 +1045,7 @@ final class Generator {
         Collections.sort(highest);
         int floorLevel = highest.get(highest.size() / 2);
         Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
-        Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), 0);
+        Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), random.nextInt(16));
         boolean nether = uniqueFlags.get(Flag.Strategy.STYLE) == Flag.NETHER;
         Tile fruit, soil;
         String cropName;
@@ -1123,11 +1111,7 @@ final class Generator {
                     tileBelow.setBlock(foundation);
                     foundation = foundation.getRelative(0, -1, 0);
                 }
-                Block upper = block.getRelative(0, 1, 0);
-                while (upper.getType() != Material.AIR) {
-                    Tile.AIR.setBlock(upper);
-                    upper = upper.getRelative(0, 1, 0);
-                }
+                for (int i = 1; i <= 2; i += 2) block.getRelative(0, i, 0).setType(Material.AIR);
                 tile.setBlockNoPhysics(block);
                 tileAbove.setBlockNoPhysics(block.getRelative(0, 1, 0));
                 if (isCenter) {
@@ -1158,7 +1142,7 @@ final class Generator {
         Collections.sort(highest);
         int floorLevel = highest.get(highest.size() / 2);
         Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
-        Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), 0);
+        Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), random.nextInt(16));
         boolean nether = uniqueFlags.get(Flag.Strategy.STYLE) == Flag.NETHER;
         int cx = width / 2;
         int cy = height / 2;
@@ -1210,11 +1194,7 @@ final class Generator {
                     tileBelow.setBlock(foundation);
                     foundation = foundation.getRelative(0, -1, 0);
                 }
-                Block upper = block.getRelative(0, 1, 0);
-                while (upper.getType() != Material.AIR) {
-                    Tile.AIR.setBlock(upper);
-                    upper = upper.getRelative(0, 1, 0);
-                }
+                for (int i = 1; i <= 2; i += 1) block.getRelative(0, i, 0).setType(Material.AIR);
                 tile.setBlock(block);
                 tileAbove.setBlock(block.getRelative(0, 1, 0));
                 if (isCorner) {
@@ -1225,6 +1205,7 @@ final class Generator {
                 }
             }
         }
+        List<String> tags = null;
         if (!animalBlocks.isEmpty()) {
             Collections.shuffle(animalBlocks, random);
             int animalCount = (animalBlocks.size() - 1) / 6 + 1;
@@ -1236,17 +1217,18 @@ final class Generator {
                 case 1: default: et = EntityType.SKELETON_HORSE;
                 }
             } else {
-                switch (randomInt(8)) {
-                case 0: et = EntityType.COW; break;
-                case 1: et = EntityType.PIG; break;
-                case 2: et = EntityType.SHEEP; break;
-                case 3: et = EntityType.CHICKEN; break;
-                case 4: et = EntityType.HORSE; break;
-                case 5: et = EntityType.DONKEY; break;
-                case 6: et = EntityType.MULE; break;
-                case 7: default: et = EntityType.MUSHROOM_COW;
+                switch (randomInt(16)) {
+                case 0: case 1: case 2: et = EntityType.COW; break;
+                case 3: case 4: case 5: et = EntityType.PIG; break;
+                case 6: case 7: case 8: et = EntityType.SHEEP; break;
+                case 9: case 10: case 11: et = EntityType.CHICKEN; break;
+                case 12: et = EntityType.HORSE; break;
+                case 13: et = EntityType.DONKEY; break;
+                case 14: et = EntityType.MULE; break;
+                case 15: default: et = EntityType.MUSHROOM_COW;
                 }
             }
+            tags = Arrays.asList(et.name().toLowerCase());
             for (int i = 0; i < animalCount; i += 1) {
                 Block block = animalBlocks.get(i);
                 Entity e = block.getWorld().spawnEntity(block.getLocation().add(0.5, 0.0, 0.5), et);
@@ -1258,7 +1240,7 @@ final class Generator {
         if (town != null) {
             Cuboid bb = new Cuboid(offset.getX(), offset.getY(), offset.getZ(),
                                    offset.getX() + width - 1, offset.getY() + 3, offset.getZ() + height - 1);
-            town.structs.add(new Struct(Struct.Type.PASTURE, bb, null, null));
+            town.structs.add(new Struct(Struct.Type.PASTURE, bb, null, tags));
         }
     }
 
@@ -1269,13 +1251,15 @@ final class Generator {
         List<Room> rooms = splitRoom(new Room(0, 0, width - 1, height - 1));
         // Remove rooms
         if (rooms.size() > 2) {
-            List<Room> removableRooms = rooms.stream().filter(r -> r.ax == 0 || r.ay == 0 || r.bx == width || r.by == height).collect(Collectors.toList());
-            Collections.shuffle(removableRooms, random);
-            int removeCount = Math.min(rooms.size() - 2, 1 + randomInt(removableRooms.size()));
-            for (int i = 0; i < removeCount; i += 1) {
-                Room room = removableRooms.get(i);
-                rooms.remove(room);
-                if (!roomsConnected(rooms)) rooms.add(room);
+            List<Room> removableRooms = rooms.stream().filter(r -> (r.width() != width && r.height() != height) && (r.ax == 0 || r.ay == 0 || r.bx == width - 1 || r.by == height - 1)).collect(Collectors.toList());
+            if (!removableRooms.isEmpty()) {
+                Collections.shuffle(removableRooms, random);
+                int removeCount = Math.min(rooms.size() - 2, 1 + randomInt(removableRooms.size()));
+                for (int i = 0; i < removeCount; i += 1) {
+                    Room room = removableRooms.get(i);
+                    rooms.remove(room);
+                    if (!roomsConnected(rooms)) rooms.add(room);
+                }
             }
         }
         // Draw tiles
@@ -1490,7 +1474,7 @@ final class Generator {
     }
 
     enum RoomTile {
-        WALL("|"), FLOOR("."), DOOR("+"), WINDOW("o"), DECORATION("T"), NPC("@"), CARPET("C");
+        WALL("|"), FLOOR("."), DOOR("+"), WINDOW("o"), DECORATION("T"), NPC("@");
         public final String stringIcon;
         RoomTile(String icon) {
             this.stringIcon = icon;

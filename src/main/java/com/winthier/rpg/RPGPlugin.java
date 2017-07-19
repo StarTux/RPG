@@ -257,8 +257,14 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         RPGWorld.Belonging belonging = rpgWorld.getBelongingAt(block);
         if (belonging == null || belonging.town == null) return;
         Player player = event.getPlayer();
+        StringBuilder sb = new StringBuilder();
+        for (Struct struct: belonging.structs) {
+            sb.append(" ").append(struct.type.name().toLowerCase());
+            for (String tag: struct.tags) sb.append(" ").append(tag);
+        }
+        player.sendMessage("Structures: " + sb);
         if (!allowedGameModes.contains(player.getGameMode())) return;
-        if (belonging.rooms.isEmpty()) return;
+        if (belonging.structs.isEmpty()) return;
         getReputations().giveReputation(player, belonging.town.fraction, -1);
         PotionEffect potion = player.getPotionEffect(PotionEffectType.SLOW_DIGGING);
         int level;
@@ -285,7 +291,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         if (belonging == null || belonging.town == null) return;
         Player player = event.getPlayer();
         if (!allowedGameModes.contains(player.getGameMode())) return;
-        if (belonging.rooms.isEmpty()) return;
+        if (belonging.structs.isEmpty()) return;
         PotionEffect potion = player.getPotionEffect(PotionEffectType.SLOW_DIGGING);
         int level;
         int duration;

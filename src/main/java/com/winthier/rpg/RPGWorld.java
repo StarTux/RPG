@@ -75,56 +75,13 @@ final class RPGWorld {
         return null;
     }
 
-    static final class House {
-        enum Type {
-            HOUSE, FOUNTAIN, FARM;
-        }
-
-        final String typeName;
-        final Cuboid boundingBox;
-        final List<Cuboid> rooms = new ArrayList<>();
-        Type type;
-
-        House(String typeName, Cuboid boundingBox, List<Cuboid> rooms) {
-            this.typeName = typeName;
-            this.boundingBox = boundingBox;
-            this.rooms.addAll(rooms);
-            try {
-                type = Type.valueOf(typeName.toUpperCase());
-            } catch (IllegalArgumentException iae) {
-                iae.printStackTrace();
-            }
-        }
-
-        House(ConfigurationSection config) {
-            typeName = config.getString("type");
-            boundingBox = new Cuboid(config.getIntegerList("bounding_box"));
-            for (Object o: config.getList("rooms")) {
-                rooms.add(new Cuboid((List<Integer>)o));
-            }
-            try {
-                type = Type.valueOf(typeName.toUpperCase());
-            } catch (IllegalArgumentException iae) {
-                iae.printStackTrace();
-            }
-        }
-
-        Map<String, Object> serialize() {
-            Map<String, Object> result = new LinkedHashMap<>();
-            result.put("type", typeName);
-            result.put("bounding_box", boundingBox.serialize());
-            result.put("rooms", rooms.stream().map(r -> r.serialize()).collect(Collectors.toList()));
-            return result;
-        }
-    }
-
     final class Town {
         final Rectangle area;
         final Rectangle questArea;
         final List<NPC> npcs = new ArrayList<>();
         final List<Quest> quests = new ArrayList<>();
         final List<String> tags = new ArrayList<>();
-        final List<House> houses = new ArrayList<>();
+        final List<Struct> structs = new ArrayList<>();
         final String name;
         final Fraction fraction;
         boolean visited = false;
@@ -145,9 +102,9 @@ final class RPGWorld {
                 ConfigurationSection section = config.createSection("tmp", map);
                 this.quests.add(new Quest(section));
             }
-            for (Map<?, ?> map: config.getMapList("houses")) {
+            for (Map<?, ?> map: config.getMapList("structs")) {
                 ConfigurationSection section = config.createSection("tmp", map);
-                this.houses.add(new House(section));
+                this.structs.add(new Struct(section));
             }
             this.area = new Rectangle(config.getIntegerList("area"));
             this.questArea = area.grow(64);
@@ -171,7 +128,7 @@ final class RPGWorld {
             result.put("area", area.serialize());
             result.put("tags", tags);
             result.put("visited", visited);
-            result.put("houses", houses.stream().map(house -> house.serialize()).collect(Collectors.toList()));
+            result.put("structs", structs.stream().map(struct -> struct.serialize()).collect(Collectors.toList()));
             result.put("npcs", npcs.stream().map(npc -> npc.serialize()).collect(Collectors.toList()));
             result.put("quests", quests.stream().map(quest -> quest.serialize()).collect(Collectors.toList()));
             return result;
@@ -181,8 +138,8 @@ final class RPGWorld {
             if (visited) return;
             visited = true;
             dirty = true;
-            for (House house: houses) {
-                Cuboid bb = house.boundingBox.grow(1);
+            for (Struct struct: structs) {
+                Cuboid bb = struct.boundingBox.grow(1);
                 for (int az = bb.az; az <= bb.bz; az += 1) {
                     for (int ay = bb.ay; ay <= bb.by; ay += 1) {
                         for (int ax = bb.ax; ax <= bb.bx; ax += 1) {
@@ -226,43 +183,64 @@ final class RPGWorld {
     }
 
     static final class Quest {
+        final Type type;
+        final Object what;
+        // State
+        int amount = 64;
+        int minReputation = 0;
+        final Map<UUID, Integer> progress = new HashMap<>();
+
         enum Type {
-            NONE, KILL, SHEAR, BREAK, FISH;
+            BREED, KILL, SHEAR, BREAK, FISH;
+        }
+        enum KillWhat {
+            CREEPER(EnumSet.of(EntityType.CREEPER)),
+            ZOMBIE(EnumSet.of(EntityType.ZOMBIE, EntityType.HUSK, EntityType.ZOMBIE_VILLAGER)),
+            SPIDER(EnumSet.of(EntityType.SPIDER, EntityType.CAVE_SPIDER)),
+            ENDERMAN(EnumSet.of(EntityType.ENDERMAN));
+            final Set<EntityType> killEntities;
+            KillWhat(Set<EntityType> killEntities) {
+                this.killEntities = killEntities;
+            }
+        }
+        enum BreedWhat {
+            COW(EntityType.COW),
+            PIG(EntityType.PIG),
+            CHICKEN(EntityType.CHICKEN),
+            HORSE(EnumSet.of(EntityType.HORSE));
+            final Set<EntityType> breedEntities;
+            BreedWhat(Set<EntityType> breedEntities) {
+                this.breedEntities = breedEntities;
+            }
+            BreedWhat(EntityType breedEntity) {
+                this.breedEntities = EnumSet.of(breedEntity);
+            }
         }
 
-        final Type type;
-        final Map<String, String> settings = new HashMap<>();
-        final Map<UUID, Integer> progress = new HashMap<>();
-        final int amount;
-        int minReputation;
-        transient boolean unwrapped;
-        transient Material material;
-        transient EntityType entityType;
-        transient int data;
-
-        Quest(Type type, int amount, Map<String, String> settings) {
+        Quest(Type type, Object what) {
             this.type = type;
-            this.amount = amount;
-            for (String key: settings.keySet()) this.settings.put(key, settings.get(key));
+            this.what = what;
         }
 
         Quest(ConfigurationSection config) {
-            Type type;
-            try {
-                type = Type.valueOf(config.getString("type"));
-            } catch (IllegalArgumentException iae) {
-                iae.printStackTrace();
-                type = Type.NONE;
+            type = Type.valueOf(config.getString("type"));
+            String whatStr = config.getString("what").toUpperCase();
+            switch (type) {
+            case BREED:
+            case SHEAR:
+                what = EntityType.valueOf(whatStr);
+                break;
+            case KILL:
+                what = KillWhat.valueOf(whatStr);
+                break;
+            case BREAK:
+                what = Material.valueOf(whatStr);
+                break;
+            default:
+                what = null;
             }
-            this.type = type;
             this.amount = config.getInt("amount");
-            ConfigurationSection section = config.getConfigurationSection("settings");
-            if (section != null) {
-                for (String key: section.getKeys(false)) {
-                    settings.put(key, section.getString(key));
-                }
-            }
-            section = config.getConfigurationSection("progress");
+            ConfigurationSection section = config.getConfigurationSection("progress");
             if (section != null) {
                 for (String key: section.getKeys(false)) {
                     progress.put(UUID.fromString(key), section.getInt(key));
@@ -274,27 +252,11 @@ final class RPGWorld {
         Map<String, Object> serialize() {
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("type", type.name());
+            result.put("what", what.toString().toLowerCase());
             result.put("amount", amount);
-            result.put("settings", settings.entrySet().stream().collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue())));
             result.put("progress", progress.entrySet().stream().collect(Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue())));
             result.put("min_reputation", minReputation);
             return result;
-        }
-
-        void unwrap() {
-            if (unwrapped) return;
-            unwrapped = true;
-            try {
-                String value;
-                value = settings.get("material");
-                if (value != null) material = Material.valueOf(value.toUpperCase());
-                value = settings.get("entity_type");
-                if (value != null) entityType = EntityType.valueOf(value.toUpperCase());
-                value = settings.get("data");
-                if (value != null) data = Integer.parseInt(value);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
         }
 
         int getProgress(Player player) {
@@ -368,7 +330,6 @@ final class RPGWorld {
         String townName = generateUniqueName(generator, 1 + generator.randomInt(2));
         Town town = new Town(area, townName, fraction);
         town.tags.addAll(flags.stream().map(f -> f.name().toLowerCase()).collect(Collectors.toList()));
-        gt.townId = townId;
         gt.name = townName;
         // Plant the town
         final String doTileDrops = "doTileDrops";
@@ -382,68 +343,35 @@ final class RPGWorld {
         }
         world.setGameRuleValue(doTileDrops, oldGameRuleValue);
         // Fetch generation info
-        for (Generator.House gh: gt.houses) {
-            town.houses.add(new House("house", gh.boundingBox, gh.rooms.stream().map(r -> r.boundingBox).collect(Collectors.toList())));
-        }
-        for (Generator.Structure gs: gt.structures) {
-            town.houses.add(new House(gs.name, gs.boundingBox, gs.boundingBoxes));
-        }
+        town.structs.addAll(gt.structs);
         // Quests
-        int totalQuests = Math.min(town.npcs.size(), 3 + generator.randomInt(3));
-        for (int i = 0; i < totalQuests; i += 1) {
-            Quest.Type questType = Quest.Type.values()[generator.randomInt(Quest.Type.values().length)];
-            Map<String, String> questSettings = new HashMap<>();
-            int questAmount;
-            switch (questType) {
-            case KILL:
-                switch (generator.randomInt(4)) {
-                case 0: questSettings.put("entity_type", "zombie"); break;
-                case 1: questSettings.put("entity_type", "spider"); break;
-                case 2: questSettings.put("entity_type", "creeper"); break;
-                case 3: default: questSettings.put("entity_type", "skeleton");
-                }
-                questAmount = 5 + generator.randomInt(15);
-                break;
-            case SHEAR:
-                questSettings.put("entity_type", "sheep");
-                questAmount = 5 + generator.randomInt(25);
-                break;
-            case BREAK:
-                switch (generator.randomInt(5)) {
-                case 0: questSettings.put("material", "sand"); break;
-                case 1: questSettings.put("material", "diamond_ore"); break;
-                case 2: questSettings.put("material", "iron_ore"); break;
-                case 3: questSettings.put("material", "gold_ore"); break;
-                case 4: default: questSettings.put("material", "coal_ore");
-                }
-                questAmount = 5 + generator.randomInt(35);
-                break;
-            case FISH:
-                questAmount = 5 + generator.randomInt(5);
-                break;
+        List<Quest> possibleQuests = new ArrayList<>();
+        for (Struct struct: town.structs) {
+            switch (struct.type) {
+            case FARM:
+            case PASTURE:
             default:
-                questAmount = 42;
-                break;
             }
-            Quest quest = new Quest(questType, questAmount, questSettings);
-            if (i == 0) {
-                quest.minReputation = -999;
-            } else {
-                quest.minReputation = (i - 1) * 20;
+        }
+        for (Quest.KillWhat what: Quest.KillWhat.values()) {
+            EnumSet<EntityType> intersection = EnumSet.noneOf(EntityType.class);
+            intersection.addAll(what.killEntities);
+            intersection.retainAll(town.fraction.villagerTypes);
+            if (intersection.isEmpty()) {
+                possibleQuests.add(new Quest(Quest.Type.KILL, what));
             }
-            town.quests.add(quest);
         }
         // NPCs
         int npc_greetings = 1;
         int npc_quests = town.quests.size();
-        List<Vec3> vecs = new ArrayList<>();
+        List<Vec3> vecNPCs = new ArrayList<>();
         for (Generator.House house: gt.houses) {
             for (Vec3 vec: house.npcs) {
-                vecs.add(vec);
+                vecNPCs.add(vec);
             }
         }
-        Collections.shuffle(vecs, generator.random);
-        for (Vec3 vec: vecs) {
+        Collections.shuffle(vecNPCs, generator.random);
+        for (Vec3 vec: vecNPCs) {
             int npcId = town.npcs.size();
             NPC npc = new NPC(vec);
             npc.name = generateUniqueName(generator, 1 + generator.randomInt(2));
@@ -485,7 +413,7 @@ final class RPGWorld {
                 addTownCooldown -= 1;
             } else {
                 tryToAddTown();
-                addTownCooldown = towns.size();
+                addTownCooldown = towns.size() / 4;
             }
         }
         for (Player player: world.getPlayers()) {
@@ -587,8 +515,8 @@ final class RPGWorld {
     static class Belonging {
         Town town;
         Lay lay;
-        House house;
-        final List<Cuboid> rooms = new ArrayList<>();
+        Struct struct; // top level struct
+        final List<Struct> structs = new ArrayList<>();
 
         enum Lay {
             OUTSKIRTS, CENTRAL;
@@ -609,11 +537,12 @@ final class RPGWorld {
             result.town = town;
             if (town.area.contains(x, z)) {
                 result.lay = Belonging.Lay.CENTRAL;
-                for (House house: town.houses) {
-                    if (house.boundingBox.contains(x, y, z)) {
-                        result.house = house;
-                        for (Cuboid bb: house.rooms) {
-                            if (bb.contains(x, y, z)) result.rooms.add(bb);
+                for (Struct struct: town.structs) {
+                    if (struct.boundingBox.contains(x, y, z)) {
+                        result.struct = struct;
+                        result.structs.add(struct);
+                        for (Struct sub: struct.deepSubs()) {
+                            if (sub.boundingBox.contains(x, y, z)) result.structs.add(sub);
                         }
                         break;
                     }

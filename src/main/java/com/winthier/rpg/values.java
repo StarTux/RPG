@@ -2,11 +2,15 @@ package com.winthier.rpg;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
+import org.bukkit.configuration.ConfigurationSection;
 
 @Value @RequiredArgsConstructor
 final class Vec2 {
@@ -154,5 +158,58 @@ enum Facing {
         this.dataStair = dataStair;
         this.dataBed = dataBed;
         this.dataFenceGate = dataBed;
+    }
+}
+
+final class Struct {
+    enum Type {
+        HOUSE, ROOM, FOUNTAIN, FARM, CROPS, PASTURE, UNKNOWN;
+    }
+
+    final Type type;
+    final Cuboid boundingBox;
+    final List<Struct> subs = new ArrayList<>();
+    final List<String> tags = new ArrayList<>();
+
+    Struct(Type type, Cuboid boundingBox, List<Struct> subs, List<String> tags) {
+        this.type = type;
+        this.boundingBox = boundingBox;
+        if (subs != null) this.subs.addAll(subs);
+        if (tags != null) this.tags.addAll(tags);
+    }
+
+    Struct(ConfigurationSection config) {
+        Type type;
+        try {
+            type = Type.valueOf(config.getString("type", "").toUpperCase());
+        } catch (IllegalArgumentException iae) {
+            iae.printStackTrace();
+            type = Type.UNKNOWN;
+        }
+        this.type = type;
+        boundingBox = new Cuboid(config.getIntegerList("bounding_box"));
+        for (Map<?, ?> map: config.getMapList("subs")) {
+            ConfigurationSection section = config.createSection("tmp", map);
+            subs.add(new Struct(section));
+        }
+        tags.addAll(config.getStringList("tags"));
+    }
+
+    Map<String, Object> serialize() {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("type", type.name().toLowerCase());
+        result.put("bounding_box", boundingBox.serialize());
+        result.put("subs", subs.stream().map(r -> r.serialize()).collect(Collectors.toList()));
+        result.put("tags", tags);
+        return result;
+    }
+
+    List<Struct> deepSubs() {
+        List<Struct> result = new ArrayList<>();
+        for (Struct sub: subs) {
+            result.add(sub);
+            result.addAll(sub.deepSubs());
+        }
+        return result;
     }
 }

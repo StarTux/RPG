@@ -38,7 +38,7 @@ public final class Debug {
                 } else if (tile == RoomTile.WALL) {
                     RoomTile left = house.tiles.get(vec.relative(0, 1));
                     RoomTile right = house.tiles.get(vec.relative(0, -1));
-                    if (left == null || right == null || left == RoomTile.FLOOR || right == RoomTile.FLOOR) {
+                    if (left == null || right == null || !left.isWall() || !right.isWall()) {
                         sb.append("=");
                     } else {
                         sb.append("|");

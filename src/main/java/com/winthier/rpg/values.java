@@ -2,9 +2,12 @@ package com.winthier.rpg;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.Getter;
@@ -165,13 +168,17 @@ final class Struct {
     enum Type {
         HOUSE, ROOM, FOUNTAIN, FARM, CROPS, PASTURE, UNKNOWN;
     }
+    enum Tag {
+        NETHER_WART, WHEAT, POTATO, CARROT, BEETROOT,
+        COW, PIG, CHICKEN, SHEEP, MUSHROOM_COW, HORSE, ZOMBIE_HORSE, SKELETON_HORSE, DONKEY, MULE;
+    }
 
     final Type type;
+    final Set<Tag> tags = EnumSet.noneOf(Tag.class);
     final Cuboid boundingBox;
     final List<Struct> subs = new ArrayList<>();
-    final List<String> tags = new ArrayList<>();
 
-    Struct(Type type, Cuboid boundingBox, List<Struct> subs, List<String> tags) {
+    Struct(Type type, Cuboid boundingBox, List<Struct> subs, Collection<Tag> tags) {
         this.type = type;
         this.boundingBox = boundingBox;
         if (subs != null) this.subs.addAll(subs);
@@ -179,28 +186,21 @@ final class Struct {
     }
 
     Struct(ConfigurationSection config) {
-        Type type;
-        try {
-            type = Type.valueOf(config.getString("type", "").toUpperCase());
-        } catch (IllegalArgumentException iae) {
-            iae.printStackTrace();
-            type = Type.UNKNOWN;
-        }
-        this.type = type;
+        type = Type.valueOf(config.getString("type").toUpperCase());
+        tags.addAll(config.getStringList("tags").stream().map(s -> Tag.valueOf(s.toUpperCase())).collect(Collectors.toList()));
         boundingBox = new Cuboid(config.getIntegerList("bounding_box"));
         for (Map<?, ?> map: config.getMapList("subs")) {
             ConfigurationSection section = config.createSection("tmp", map);
             subs.add(new Struct(section));
         }
-        tags.addAll(config.getStringList("tags"));
     }
 
     Map<String, Object> serialize() {
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("type", type.name().toLowerCase());
+        result.put("type", type.name());
+        result.put("tags", tags.stream().map(t -> t.name()).collect(Collectors.toList()));
         result.put("bounding_box", boundingBox.serialize());
         result.put("subs", subs.stream().map(r -> r.serialize()).collect(Collectors.toList()));
-        result.put("tags", tags);
         return result;
     }
 

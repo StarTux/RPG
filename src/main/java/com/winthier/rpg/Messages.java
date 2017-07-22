@@ -24,7 +24,22 @@ final class Messages {
         SYNONYM_LIVES_IN,
         SYNONYM_A_PLACE_CALLED,
         SYNONYM_SINCERELY,
-        DELIVERY_THANKS;
+        SYNONYM_LEGENDARY_ITEM,
+        SYNONYM_FINE_ITEM,
+        DELIVERY_THANKS,
+        QUEST_MINE,
+        QUEST_KILL_STOLEN_BABY_PETS,
+        QUEST_MINE_SUCCESS,
+        QUEST_KILL,
+        QUEST_KILL_SUCCESS,
+        QUEST_SHEAR,
+        QUEST_SHEAR_PROGRESS,
+        QUEST_SHEAR_SUCCESS,
+        QUEST_BREED,
+        QUEST_BREED_PROGRESS,
+        QUEST_BREED_SUCCESS,
+        QUEST_EXPIRED,
+        QUEST_UNWORTHY;
     }
 
     class Message {

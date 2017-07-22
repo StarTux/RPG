@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -184,14 +185,26 @@ final class RPGWorld {
 
     static final class Quest {
         final Type type;
-        final Object what;
+        final Enum<?> what;
         // State
-        int amount = 64;
+        int amount = 16;
         int minReputation = 0;
         final Map<UUID, Integer> progress = new HashMap<>();
+        final Map<MessageType, String> messages = new EnumMap<>(MessageType.class);
+        State state = State.INIT;
 
         enum Type {
-            BREED, KILL, SHEAR, BREAK, FISH;
+            MINE(MineWhat.class),
+            KILL(KillWhat.class),
+            SHEAR(ShearWhat.class),
+            BREED(BreedWhat.class);
+            final Class<? extends Enum> whatType;
+            Type(Class<? extends Enum> whatType) {
+                this.whatType = whatType;
+            }
+        }
+        enum State {
+            INIT, ENABLED, COMPLETED, RETURNED;
         }
         enum KillWhat {
             CREEPER(EnumSet.of(EntityType.CREEPER)),
@@ -204,41 +217,54 @@ final class RPGWorld {
             }
         }
         enum BreedWhat {
-            COW(EntityType.COW),
-            PIG(EntityType.PIG),
-            CHICKEN(EntityType.CHICKEN),
-            HORSE(EnumSet.of(EntityType.HORSE));
+            COW(EnumSet.of(EntityType.COW), Struct.Tag.COW),
+            PIG(EnumSet.of(EntityType.PIG), Struct.Tag.PIG),
+            SHEEP(EnumSet.of(EntityType.SHEEP), Struct.Tag.SHEEP),
+            CHICKEN(EnumSet.of(EntityType.CHICKEN), Struct.Tag.CHICKEN),
+            HORSE(EnumSet.of(EntityType.HORSE), Struct.Tag.HORSE),
+            DONKEY(EnumSet.of(EntityType.DONKEY), Struct.Tag.DONKEY),
+            MULE(EnumSet.of(EntityType.MULE), Struct.Tag.MULE),
+            MUSHROOM_COW(EnumSet.of(EntityType.MUSHROOM_COW), Struct.Tag.MUSHROOM_COW);
             final Set<EntityType> breedEntities;
-            BreedWhat(Set<EntityType> breedEntities) {
+            Struct.Tag breedTag;
+            BreedWhat(Set<EntityType> breedEntities, Struct.Tag breedTag) {
                 this.breedEntities = breedEntities;
+                this.breedTag = breedTag;
             }
             BreedWhat(EntityType breedEntity) {
                 this.breedEntities = EnumSet.of(breedEntity);
             }
         }
+        enum ShearWhat {
+            SHEEP(EnumSet.of(EntityType.SHEEP));
+            final Set<EntityType> shearEntities;
+            ShearWhat(Set<EntityType> shearEntities) {
+                this.shearEntities = shearEntities;
+            }
+        }
+        enum MineWhat {
+            DIAMOND(EnumSet.of(Material.DIAMOND_ORE)),
+            IRON(EnumSet.of(Material.IRON_ORE)),
+            GOLD(EnumSet.of(Material.GOLD_ORE)),
+            COAL(EnumSet.of(Material.COAL_ORE));
+            final Set<Material> mineMaterials;
+            MineWhat(Set<Material> mineMaterials) {
+                this.mineMaterials = mineMaterials;
+            }
+        }
+        enum MessageType {
+            DESCRIPTION, PROGRESS, SUCCESS, UNWORTHY, EXPIRED;
+        }
 
-        Quest(Type type, Object what) {
+        Quest(Type type, Enum<?> what) {
             this.type = type;
             this.what = what;
         }
 
         Quest(ConfigurationSection config) {
             type = Type.valueOf(config.getString("type"));
-            String whatStr = config.getString("what").toUpperCase();
-            switch (type) {
-            case BREED:
-            case SHEAR:
-                what = EntityType.valueOf(whatStr);
-                break;
-            case KILL:
-                what = KillWhat.valueOf(whatStr);
-                break;
-            case BREAK:
-                what = Material.valueOf(whatStr);
-                break;
-            default:
-                what = null;
-            }
+            what = type.valueOf(type.whatType, config.getString("what"));
+            state = State.valueOf(config.getString("state"));
             this.amount = config.getInt("amount");
             ConfigurationSection section = config.getConfigurationSection("progress");
             if (section != null) {
@@ -247,15 +273,22 @@ final class RPGWorld {
                 }
             }
             minReputation = config.getInt("min_reputation", 0);
+            for (MessageType mt: MessageType.values()) {
+                messages.put(mt, config.getString("message_" + mt.name().toLowerCase()));
+            }
         }
 
         Map<String, Object> serialize() {
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("type", type.name());
-            result.put("what", what.toString().toLowerCase());
+            result.put("what", what.name());
+            result.put("state", state.name());
             result.put("amount", amount);
             result.put("progress", progress.entrySet().stream().collect(Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue())));
             result.put("min_reputation", minReputation);
+            for (MessageType mt: MessageType.values()) {
+                if (messages.containsKey(mt)) result.put("message_" + mt.name().toLowerCase(), messages.get(mt));
+            }
             return result;
         }
 
@@ -266,27 +299,14 @@ final class RPGWorld {
         }
 
         boolean isSignedUp(Player player) {
-            return progress.containsKey(player.getUniqueId());
-        }
-
-        void signUp(Player player) {
-            giveProgress(player, 0);
-        }
-
-        void giveProgress(Player player, int prog) {
-            Integer score = progress.get(player.getUniqueId());
-            if (score == null) score = 0;
-            score += prog;
-            if (score > this.amount) score = this.amount;
-            progress.put(player.getUniqueId(), score);
-        }
-
-        String getQuestDescription() {
-            return type.name();
-        }
-
-        String getProgressReport(int progress) {
-            return "" + progress + " out of " + amount;
+            switch (state) {
+            case INIT: return false;
+            case ENABLED: return progress.containsKey(player.getUniqueId());
+            case COMPLETED:
+            case RETURNED:
+            default:
+                return false;
+            }
         }
     }
 
@@ -349,8 +369,36 @@ final class RPGWorld {
         for (Struct struct: town.structs) {
             switch (struct.type) {
             case FARM:
+                break;
             case PASTURE:
-            default:
+                for (Struct.Tag tag: struct.tags) {
+                    switch (tag) {
+                    case COW:
+                        possibleQuests.add(new Quest(Quest.Type.BREED, Quest.BreedWhat.COW));
+                        break;
+                    case PIG:
+                        possibleQuests.add(new Quest(Quest.Type.BREED, Quest.BreedWhat.PIG));
+                        break;
+                    case SHEEP:
+                        possibleQuests.add(new Quest(Quest.Type.BREED, Quest.BreedWhat.SHEEP));
+                        possibleQuests.add(new Quest(Quest.Type.SHEAR, Quest.ShearWhat.SHEEP));
+                        break;
+                    case CHICKEN:
+                        possibleQuests.add(new Quest(Quest.Type.BREED, Quest.BreedWhat.CHICKEN));
+                        break;
+                    case HORSE:
+                        possibleQuests.add(new Quest(Quest.Type.BREED, Quest.BreedWhat.HORSE));
+                        break;
+                    case DONKEY:
+                        possibleQuests.add(new Quest(Quest.Type.BREED, Quest.BreedWhat.MULE));
+                        break;
+                    case MUSHROOM_COW:
+                        possibleQuests.add(new Quest(Quest.Type.BREED, Quest.BreedWhat.MUSHROOM_COW));
+                        break;
+                    }
+                }
+                break;
+            default: break;
             }
         }
         for (Quest.KillWhat what: Quest.KillWhat.values()) {
@@ -361,9 +409,11 @@ final class RPGWorld {
                 possibleQuests.add(new Quest(Quest.Type.KILL, what));
             }
         }
+        for (Quest.MineWhat what: Quest.MineWhat.values()) {
+            possibleQuests.add(new Quest(Quest.Type.MINE, what));
+        }
+        Collections.shuffle(possibleQuests, generator.random);
         // NPCs
-        int npc_greetings = 1;
-        int npc_quests = town.quests.size();
         List<Vec3> vecNPCs = new ArrayList<>();
         for (Generator.House house: gt.houses) {
             for (Vec3 vec: house.npcs) {
@@ -371,23 +421,28 @@ final class RPGWorld {
             }
         }
         Collections.shuffle(vecNPCs, generator.random);
+        int npcGreetings = 1;
+        int npcQuests = Math.min(possibleQuests.size(), vecNPCs.size()/* / 2*/); // TODO
         for (Vec3 vec: vecNPCs) {
             int npcId = town.npcs.size();
             NPC npc = new NPC(vec);
             npc.name = generateUniqueName(generator, 1 + generator.randomInt(2));
             String message;
-            if (npc_quests > 0) {
-                npc_quests -= 1;
-                npc.questId = npc_quests;
+            if (npcQuests > 0) {
+                npcQuests -= 1;
+                npc.questId = town.quests.size();
+                Quest quest = possibleQuests.remove(possibleQuests.size() - 1);
+                enableQuest(quest, town, npc);
+                town.quests.add(quest);
                 message = plugin.getMessages().deal(Messages.Type.RANDOM);
-            } else if (npc_greetings > 0) {
-                npc_greetings -= 1;
+            } else if (npcGreetings > 0) {
+                npcGreetings -= 1;
                 message = plugin.getMessages().deal(Messages.Type.GREETING);
-                message = message.replace("%town%", town.name);
             } else {
                 message = plugin.getMessages().deal(Messages.Type.RANDOM);
             }
             message = message.replace("%npc%", npc.name);
+            message = message.replace("%town%", town.name);
             npc.message = message;
             town.npcs.add(npc);
             EntityType et = fraction.villagerTypes.get(generator.randomInt(fraction.villagerTypes.size()));
@@ -413,7 +468,7 @@ final class RPGWorld {
                 addTownCooldown -= 1;
             } else {
                 tryToAddTown();
-                addTownCooldown = towns.size() / 4;
+                addTownCooldown = towns.size() * 20;
             }
         }
         for (Player player: world.getPlayers()) {
@@ -427,7 +482,7 @@ final class RPGWorld {
                 }
             }
         }
-        if (ticks % 20 == 0 && dirty) save();
+        if (ticks % (20 * 60) == 0 && dirty) save();
     }
 
     Town findTown(int townId) {
@@ -442,41 +497,67 @@ final class RPGWorld {
         return town.npcs.get(npcId);
     }
 
-    String getNPCMessage(int townId, int npcId, Player player) {
+    String onPlayerInteractNPC(Player player, int townId, int npcId) {
         if (townId >= towns.size()) return "Hello World";
         Town town = towns.get(townId);
         if (npcId >= town.npcs.size()) return "Hello World";
         NPC npc = town.npcs.get(npcId);
-        return npc.message;
-        // if (npc.questId < 0 || npc.questId >= town.quests.size()) {
-        //     return npc.message;
-        // } else {
-        //     Quest quest = town.quests.get(npc.questId);
-        //     if (quest.isSignedUp(player)) {
-        //         int progress = quest.getProgress(player);
-        //         if (progress == 0) {
-        //             return quest.getQuestDescription();
-        //         } else if (progress >= quest.amount) {
-        //             return "YOU DID IT"; // TODO
-        //         } else {
-        //             return quest.getProgressReport(progress);
-        //         }
-        //     } else if (quest.minReputation > plugin.getReputations().getReputation(player, town.fraction)) {
-        //         return "You are not worthy of my quest.";
-        //     } else {
-        //         quest.signUp(player);
-        //         dirty = true;
-        //         return quest.getQuestDescription();
-        //     }
-        // }
+        if (npc.questId < 0) {
+            return npc.message;
+        } else {
+            Quest quest = town.quests.get(npc.questId);
+            String result;
+            switch (quest.state) {
+            case ENABLED:
+                if (quest.isSignedUp(player)) {
+                    int progress = quest.getProgress(player);
+                    if (progress == 0) {
+                        result = quest.messages.get(Quest.MessageType.DESCRIPTION);
+                    } else if (progress == quest.amount) {
+                        result = quest.messages.get(Quest.MessageType.SUCCESS);
+                    } else {
+                        result = quest.messages.get(Quest.MessageType.PROGRESS)
+                            .replace("%done%", "" + progress)
+                            .replace("%todo%", "" + (quest.amount - progress))
+                            .replace("%amount%", "" + quest.amount);
+                    }
+                } else if (quest.minReputation > plugin.getReputations().getReputation(player, town.fraction)) {
+                    result = quest.messages.get(Quest.MessageType.UNWORTHY);
+                } else {
+                    giveProgress(player, quest, 0);
+                    dirty = true;
+                    result = quest.messages.get(Quest.MessageType.DESCRIPTION);
+                }
+                break;
+            case COMPLETED:
+                int progress = quest.getProgress(player);
+                if (progress == quest.amount) {
+                    result = quest.messages.get(Quest.MessageType.SUCCESS);
+                    quest.state = Quest.State.RETURNED;
+                    dirty = true;
+                    // TODO
+                } else {
+                    result = quest.messages.get(Quest.MessageType.EXPIRED);
+                }
+                break;
+            case RETURNED: default:
+                progress = quest.getProgress(player);
+                if (progress == quest.amount) {
+                    result = quest.messages.get(Quest.MessageType.SUCCESS);
+                } else {
+                    result = quest.messages.get(Quest.MessageType.EXPIRED);
+                }
+            }
+            return result;
+        }
     }
 
     enum Fraction {
-        VILLAGER(10, Arrays.asList(EntityType.VILLAGER), ChatColor.GREEN),
-        ZOMBIE_VILLAGER(5, Arrays.asList(EntityType.ZOMBIE_VILLAGER), ChatColor.DARK_GREEN),
+        VILLAGER(5, Arrays.asList(EntityType.VILLAGER), ChatColor.GREEN),
         SKELETON(5, Arrays.asList(EntityType.SKELETON, EntityType.STRAY), ChatColor.WHITE),
         ZOMBIE(5, Arrays.asList(EntityType.ZOMBIE, EntityType.HUSK), ChatColor.DARK_GREEN),
-        OCCULT(3, Arrays.asList(EntityType.WITCH, EntityType.EVOKER, EntityType.VINDICATOR), ChatColor.LIGHT_PURPLE),
+        ZOMBIE_VILLAGER(3, Arrays.asList(EntityType.ZOMBIE_VILLAGER), ChatColor.DARK_GREEN),
+        OCCULT(2, Arrays.asList(EntityType.WITCH, EntityType.EVOKER, EntityType.VINDICATOR), ChatColor.LIGHT_PURPLE),
         NETHER(1, Arrays.asList(EntityType.PIG_ZOMBIE, EntityType.BLAZE, EntityType.WITHER_SKELETON), ChatColor.RED),
         CREEPER(0, Arrays.asList(EntityType.CREEPER), ChatColor.DARK_GREEN);
 
@@ -517,6 +598,7 @@ final class RPGWorld {
         Lay lay;
         Struct struct; // top level struct
         final List<Struct> structs = new ArrayList<>();
+        final Set<Struct.Tag> tags = EnumSet.noneOf(Struct.Tag.class);
 
         enum Lay {
             OUTSKIRTS, CENTRAL;
@@ -541,8 +623,12 @@ final class RPGWorld {
                     if (struct.boundingBox.contains(x, y, z)) {
                         result.struct = struct;
                         result.structs.add(struct);
+                        result.tags.addAll(struct.tags);
                         for (Struct sub: struct.deepSubs()) {
-                            if (sub.boundingBox.contains(x, y, z)) result.structs.add(sub);
+                            if (sub.boundingBox.contains(x, y, z)) {
+                                result.structs.add(sub);
+                                result.tags.addAll(sub.tags);
+                            }
                         }
                         break;
                     }
@@ -622,5 +708,88 @@ final class RPGWorld {
         meta.setGeneration(BookMeta.Generation.ORIGINAL);
         item.setItemMeta(meta);
         return recipientVec;
+    }
+
+    void giveProgress(Player player, Quest quest, int prog) {
+        Integer score = quest.progress.get(player.getUniqueId());
+        if (score == null) score = 0;
+        score += prog;
+        if (score > quest.amount) score = quest.amount;
+        quest.progress.put(player.getUniqueId(), score);
+        if (score == quest.amount) quest.state = Quest.State.COMPLETED;
+        dirty = true;
+    }
+
+    void enableQuest(Quest quest, Town town, NPC npc) {
+        quest.messages.put(Quest.MessageType.EXPIRED, plugin.getMessages().deal(Messages.Type.QUEST_EXPIRED));
+        quest.messages.put(Quest.MessageType.UNWORTHY, plugin.getMessages().deal(Messages.Type.QUEST_UNWORTHY));
+        switch (quest.type) {
+        case MINE:
+            String gemstone;
+            String fine = plugin.getMessages().deal(Messages.Type.SYNONYM_FINE_ITEM);
+            String ore = quest.what.name().toLowerCase();
+            String legendary = plugin.getMessages().deal(Messages.Type.SYNONYM_LEGENDARY_ITEM);
+            switch (plugin.getRandom().nextInt(10)) {
+            case 0: gemstone = Msg.capitalize(fine) + " " + Msg.capitalize(ore) + " of " + town.name; break;
+            case 1: gemstone = Msg.capitalize(fine) + " " + town.name + " " + Msg.capitalize(ore); break;
+            case 2: default: gemstone = town.name + " " + fine + " " + Msg.capitalize(ore);
+            }
+            quest.messages.put(Quest.MessageType.DESCRIPTION, plugin.getMessages().deal(Messages.Type.QUEST_MINE));
+            quest.messages.put(Quest.MessageType.PROGRESS, quest.messages.get(Quest.MessageType.DESCRIPTION));
+            quest.messages.put(Quest.MessageType.SUCCESS, plugin.getMessages().deal(Messages.Type.QUEST_MINE_SUCCESS));
+            for (Quest.MessageType mt: Quest.MessageType.values()) {
+                quest.messages.put(mt, quest.messages.get(mt)
+                                   .replace("%legendary%", legendary)
+                                   .replace("%gem%", gemstone)
+                                   .replace("%ore%", ore));
+            }
+            break;
+        case KILL:
+            String pet = plugin.getMessages().deal(Messages.Type.QUEST_KILL_STOLEN_BABY_PETS);
+            String singular = Msg.capitalize(((Quest.KillWhat)quest.what).name());
+            String plural = quest.what == Quest.KillWhat.ENDERMAN ? "Endermen" : singular + "s";
+            quest.messages.put(Quest.MessageType.DESCRIPTION, plugin.getMessages().deal(Messages.Type.QUEST_KILL));
+            quest.messages.put(Quest.MessageType.PROGRESS, quest.messages.get(Quest.MessageType.DESCRIPTION));
+            quest.messages.put(Quest.MessageType.SUCCESS, plugin.getMessages().deal(Messages.Type.QUEST_KILL_SUCCESS));
+            for (Quest.MessageType mt: Quest.MessageType.values()) {
+                quest.messages.put(mt, quest.messages.get(mt)
+                                   .replace("%pet%", pet)
+                                   .replace("%singular%", singular)
+                                   .replace("%plural%", plural));
+            }
+            break;
+        case SHEAR:
+            quest.messages.put(Quest.MessageType.DESCRIPTION, plugin.getMessages().deal(Messages.Type.QUEST_SHEAR));
+            quest.messages.put(Quest.MessageType.PROGRESS, plugin.getMessages().deal(Messages.Type.QUEST_SHEAR_PROGRESS));
+            quest.messages.put(Quest.MessageType.SUCCESS, plugin.getMessages().deal(Messages.Type.QUEST_SHEAR_SUCCESS));
+            for (Quest.MessageType mt: Quest.MessageType.values()) {
+                quest.messages.put(mt, quest.messages.get(mt)
+                                   .replace("%amount%", "" + quest.amount));
+            }
+            break;
+        case BREED:
+            singular = ((Quest.BreedWhat)quest.what).name().toLowerCase().replace("_", " ");
+            switch ((Quest.BreedWhat)quest.what) {
+            case SHEEP: plural = "sheep"; break;
+            default: plural = singular + "s";
+            }
+            quest.messages.put(Quest.MessageType.DESCRIPTION, plugin.getMessages().deal(Messages.Type.QUEST_BREED));
+            quest.messages.put(Quest.MessageType.PROGRESS, plugin.getMessages().deal(Messages.Type.QUEST_BREED_PROGRESS));
+            quest.messages.put(Quest.MessageType.SUCCESS, plugin.getMessages().deal(Messages.Type.QUEST_BREED_SUCCESS));
+            for (Quest.MessageType mt: Quest.MessageType.values()) {
+                quest.messages.put(mt, quest.messages.get(mt)
+                                   .replace("%singular%", singular)
+                                   .replace("%plural%", plural)
+                                   .replace("%amount%", "" + quest.amount));
+            }
+            break;
+        }
+        for (Quest.MessageType mt: Quest.MessageType.values()) {
+            quest.messages.put(mt, quest.messages.get(mt)
+                               .replace("%town%", town.name)
+                               .replace("%npc%", npc.name));
+        }
+        quest.state = Quest.State.ENABLED;
+        dirty = true;
     }
 }

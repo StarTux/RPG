@@ -4,6 +4,7 @@ import com.winthier.custom.CustomPlugin;
 import com.winthier.custom.event.CustomRegisterEvent;
 import com.winthier.custom.event.CustomTickEvent;
 import com.winthier.custom.util.Items;
+import com.winthier.exploits.bukkit.BukkitExploits;
 import com.winthier.rpg.Generator.House;
 import com.winthier.rpg.Generator.Town;
 import java.util.ArrayList;
@@ -28,13 +29,18 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDamageEvent;
+import org.bukkit.event.entity.EntityBreedEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.player.PlayerShearEntityEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
@@ -260,26 +266,105 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         StringBuilder sb = new StringBuilder();
         for (Struct struct: belonging.structs) {
             sb.append(" ").append(struct.type.name().toLowerCase());
-            for (String tag: struct.tags) sb.append(" ").append(tag);
+            for (Struct.Tag tag: struct.tags) sb.append(" ").append(tag.name().toLowerCase());
         }
         player.sendMessage("Structures: " + sb);
         if (!allowedGameModes.contains(player.getGameMode())) return;
-        if (belonging.structs.isEmpty()) return;
-        getReputations().giveReputation(player, belonging.town.fraction, -1);
-        PotionEffect potion = player.getPotionEffect(PotionEffectType.SLOW_DIGGING);
-        int level;
-        int duration;
-        if (potion != null) {
-            level = Math.max(1, potion.getAmplifier());
-            duration = Math.max(200, potion.getDuration());
-        } else {
-            level = 1;
-            duration = 200;
+        if (!belonging.structs.isEmpty()) {
+            getReputations().giveReputation(player, belonging.town.fraction, -1);
+            PotionEffect potion = player.getPotionEffect(PotionEffectType.SLOW_DIGGING);
+            int level;
+            int duration;
+            if (potion != null) {
+                level = Math.max(1, potion.getAmplifier());
+                duration = Math.max(200, potion.getDuration());
+            } else {
+                level = 1;
+                duration = 200;
+            }
+            player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_DIGGING, duration, level), true);
+            Location loc = block.getLocation().add(0.5, 0.5, 0.5);
+            player.spawnParticle(Particle.VILLAGER_ANGRY, loc, 3, .2, .2, .2, 0.0);
+            player.playSound(loc, Sound.ENTITY_VILLAGER_HURT, 0.1f, 0.1f);
         }
-        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_DIGGING, duration, level), true);
-        Location loc = block.getLocation().add(0.5, 0.5, 0.5);
-        player.spawnParticle(Particle.VILLAGER_ANGRY, loc, 3, .2, .2, .2, 0.0);
-        player.playSound(loc, Sound.ENTITY_VILLAGER_HURT, 0.1f, 0.1f);
+        if (!BukkitExploits.getInstance().isPlayerPlaced(block)) {
+            for (RPGWorld.Quest quest: belonging.town.quests) {
+                if (quest.type == RPGWorld.Quest.Type.MINE
+                    && quest.isSignedUp(player)
+                    && ((RPGWorld.Quest.MineWhat)quest.what).mineMaterials.contains(block.getType())) {
+                    rpgWorld.giveProgress(player, quest, 1);
+                    player.sendMessage("Progress " + quest.type + " " + quest.what + " " + quest.getProgress(player));
+                }
+            }
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onEntityDeath(EntityDeathEvent event) {
+        LivingEntity entity = event.getEntity();
+        if (entity.getHealth() > 0) return;
+        Player player = entity.getKiller();
+        if (player == null) return;
+        if (!allowedGameModes.contains(player.getGameMode())) return;
+        RPGWorld rpgWorld = getRPGWorld(entity.getWorld());
+        if (rpgWorld == null) return;
+        RPGWorld.Belonging belonging = rpgWorld.getBelongingAt(entity.getLocation().getBlock());
+        if (belonging == null || belonging.town == null) return;
+        for (RPGWorld.Quest quest: belonging.town.quests) {
+            if (quest.type == RPGWorld.Quest.Type.KILL
+                && quest.isSignedUp(player)
+                && ((RPGWorld.Quest.KillWhat)quest.what).killEntities.contains(entity.getType())) {
+                rpgWorld.giveProgress(player, quest, 1);
+                player.sendMessage("Progress " + quest.type + " " + quest.what + " " + quest.getProgress(player));
+            }
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onPlayerShearEntity(PlayerShearEntityEvent event) {
+        Entity entity = event.getEntity();
+        RPGWorld rpgWorld = getRPGWorld(entity.getWorld());
+        if (rpgWorld == null) return;
+        Player player = event.getPlayer();
+        if (!allowedGameModes.contains(player.getGameMode())) return;
+        RPGWorld.Belonging belonging = rpgWorld.getBelongingAt(entity.getLocation().getBlock());
+        if (belonging == null || belonging.town == null) return;
+        for (RPGWorld.Quest quest: belonging.town.quests) {
+            if (quest.type == RPGWorld.Quest.Type.SHEAR
+                && quest.isSignedUp(player)
+                && belonging.struct.type == Struct.Type.PASTURE
+                && belonging.tags.contains(Struct.Tag.SHEEP)
+                && ((RPGWorld.Quest.ShearWhat)quest.what).shearEntities.contains(entity.getType())) {
+                rpgWorld.giveProgress(player, quest, 1);
+                player.sendMessage("Progress " + quest.type + " " + quest.what + " " + quest.getProgress(player));
+            }
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onEntityBreed(EntityBreedEvent event) {
+        System.out.println(event.getEventName() + " " + event.getBreeder() + " " + event.getEntity());
+        Entity entity = event.getEntity();
+        RPGWorld rpgWorld = getRPGWorld(entity.getWorld());
+        if (rpgWorld == null) return;
+        if (!(event.getBreeder() instanceof Player)) return;
+        Player player = (Player)event.getBreeder();
+        if (!allowedGameModes.contains(player.getGameMode())) return;
+        RPGWorld.Belonging belonging = rpgWorld.getBelongingAt(event.getFather().getLocation().getBlock());
+        if (belonging == null || belonging.town == null) return;
+        for (RPGWorld.Quest quest: belonging.town.quests) {
+            System.out.println(quest.type);
+            if (quest.type == RPGWorld.Quest.Type.BREED) {
+                RPGWorld.Quest.BreedWhat what = (RPGWorld.Quest.BreedWhat)quest.what;
+                if (quest.isSignedUp(player)
+                    && belonging.struct.type == Struct.Type.PASTURE
+                    && belonging.tags.contains(what.breedTag)
+                    && what.breedEntities.contains(entity.getType())) {
+                    rpgWorld.giveProgress(player, quest, 1);
+                    player.sendMessage("Progress " + quest.type + " " + quest.what + " " + quest.getProgress(player));
+                }
+            }
+        }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -303,5 +388,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
             duration = 100;
         }
         player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_DIGGING, duration, level), true);
+        Location loc = block.getLocation().add(0.5, 0.5, 0.5);
+        player.playSound(loc, Sound.ENTITY_VILLAGER_HURT, 0.1f, 0.1f);
     }
 }

@@ -87,6 +87,8 @@ synonym_delivery: [letter, delivery, package, parcel, message, note, report, gif
 synonym_lives_in: [lives in, moved to, resides in, leads a humble life in, sought refuge in, tries to make a living in, is enjoying life in, now lives in, can be found in, works in, found work in, works near, found a new home in, owns a house in, built a house in]
 synonym_a_place_called: [a town named, a place called, a village by the name of, some place they call, a faraway place called, a strange place they call]
 synonym_sincerely: [Sincerely, Thanks in advance, Cheers, Faithfully, Regards, Respectfully, Best, Looking Forward, Thanks, Hugs, Best wishes, See you around, Yours truly, Love, Kisses, Hugs and kisses]
+synonym_legendary_item: [legendary, mysterious, myth-enshrouded, famous, famed, fabled]
+synonym_fine_item: [noble, precious, pure, classic, heavy, fine, kingly]
 delivery_thanks:
 - A letter from %sender%? Why thank you. Would you mind delivering something else for me?
 - Gasp! I was anxious for a word from %sender%. Could you please forward it to our mutual friend?
@@ -97,3 +99,50 @@ delivery_thanks:
 - '%sender%? Writing %npc% a letter? I have no excuse to ignore %next% any longer.'
 - A note? From %sender%? To me?! Please bring this to %next%.
 - Thank you for relaying this message from %sender% to me. Could you do the same for me and %next%?
+quest_mine:
+- The %legendary% %gem% is said to slumber in the %ore% veins under %town%.
+- One day I will find the %gem% in our %legendary% %ore% veins.
+- Many %ore% miners have come here to try and find the %legendary% %gem%.
+- If only I mined the %legendary% %gem% from one of our %ore% veins, I could start my own business.
+quest_mine_success:
+- You found the %gem%. Thank you so much!
+- You would just give the %gem% to me? I will not forget this.
+- We will always be grateful to you for bringing us the %gem%.
+- I will always be grateful to you for bringing me the %gem%.
+- The %gem% will be a big help to us. Thank you very much.
+quest_kill_stolen_baby_pets: [ rabbit, kitten, puppy, chick ]
+quest_kill:
+- The %singular% population around %town% has gotten out of hand. One even stole my %pet%.
+- My %pet% ran away because of the invading %singular army. Please find it.
+- A hoard of %plural% was seen near my house the day before my %pet% disappeared... I miss her so much.
+- There has been an unusual amount of %plural% around %town%. One of them took my %pet%.
+quest_kill_success:
+- Thanks to you, my %pet% came back!
+- You saved my %pet%! Thank you so much.
+- Great news! My %pet% has returned since you cut down the %singular% population.
+- You sure showed those %plural%. They even gave my %pet% back.
+quest_shear:
+- I need to shear the sheep at our farm, but cannot leave the house.
+- Too bad I have a cold. Our sheep farm does not shear itself.
+- Could you head to our sheep farm and shear them for me? I will not be able to do it myself.
+- Most of the sheep on our farm have fully regrown their wool already. Would you mind shearing them for me?
+quest_shear_progress:
+- Shearing %todo% more sheep should do the trick.
+- You got %done% covered. Would you mind doing %amount%?
+- You sheared %done% sheep. Could you shear %todo% more?
+quest_shear_success:
+- Thank you for shearing our sheep!
+quest_breed:
+- Our %singular% farm neds more %plural%. Would you be able to breed them?
+quest_breed_progress:
+- You bred %done% %plural%. Only %todo% more to go.
+quest_breed_success:
+- Thanks to you breeding our %plural%, the farm is saved!
+quest_expired:
+- Somebody already helped me out.
+- I am afraid you are too late.
+- Somebody else helped me out.
+quest_unworthy:
+- We do not like your kind around here.
+- I am keeping my eyes on you.
+- I do not trust you.

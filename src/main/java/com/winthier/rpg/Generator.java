@@ -75,8 +75,8 @@ final class Generator {
         final String[] diphtongs = {"ae", "ai", "au", "ea", "ei", "ia", "ie", "io", "oa", "oi", "ou", "ua", "ui"};
         final String[] accents = {"á", "â", "à", "é", "ê", "è", "ó", "ô", "ò", "ú", "û", "ù"};
         final String[] umlauts = {"ä", "ö", "ü"};
-        final String[] endSyllable = {"b", "d", "f", "g", "k", "l", "m", "n", "p", "r", "s", "t", "v", "w", "x", "y", "z", "st", "nd", "sd", "sh", "tsh", "sch", "ng", "nk", "rk", "lt", "ld", "rn", "rt", "rs", "ts", "mb", "rst", "tch", "ch"};
-        final String[] endStrong = {"ff", "gg", "kk", "ll", "mm", "nn", "pp", "rr", "ss", "tt", "tz", "ck", "th", "rth", "nth", "ns"};
+        final String[] endSyllable = {"b", "d", "f", "g", "k", "l", "m", "n", "p", "r", "s", "t", "v", "w", "x", "y", "z", "st", "nd", "sd", "sh", "tsh", "sch", "ng", "nk", "rg", "rk", "rs", "rt", "lt", "ld", "rn", "ts", "mb", "rst", "tch", "ch", "th", "rth", "nth", "ns"};
+        final String[] endStrong = {"ff", "gg", "kk", "ll", "mm", "nn", "pp", "rr", "ss", "tt", "tz", "ck"};
         StringBuilder sb = new StringBuilder();
         boolean priorHasEnd = true;
         boolean priorStrongEnd = false;
@@ -1048,26 +1048,26 @@ final class Generator {
         Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), random.nextInt(16));
         boolean nether = uniqueFlags.get(Flag.Strategy.STYLE) == Flag.NETHER;
         Tile fruit, soil;
-        String cropName;
+        Struct.Tag cropTag;
         if (nether) {
             fruit = Tile.of(Material.NETHER_WARTS, 3);
             soil = Tile.of(Material.SOUL_SAND);
-            cropName = "nether_wart";
+            cropTag = Struct.Tag.NETHER_WART;
         } else {
             switch (randomInt(5)) {
             case 0:
                 fruit = Tile.of(Material.BEETROOT_BLOCK, 3);
-                cropName = "beetroot";
+                cropTag = Struct.Tag.BEETROOT;
                 break;
             case 1: fruit = Tile.of(Material.CARROT, 7);
-                cropName = "carrot";
+                cropTag = Struct.Tag.CARROT;
                 break;
             case 2: fruit = Tile.of(Material.POTATO, 7);
-                cropName = "potato";
+                cropTag = Struct.Tag.POTATO;
                 break;
             case 3: default:
                 fruit = Tile.of(Material.CROPS, 7);
-                cropName = "wheat";
+                cropTag = Struct.Tag.WHEAT;
             }
             soil = Tile.of(Material.SOIL, 7);
         }
@@ -1126,7 +1126,7 @@ final class Generator {
                                     offset.getX() + width - 2, offset.getY() + 1, offset.getZ() + height - 2);
             Struct struct = new Struct(Struct.Type.FARM, bb,
                                        Arrays.asList(new Struct(Struct.Type.CROPS, bb2, null, null)),
-                                       Arrays.asList(cropName));
+                                       EnumSet.of(cropTag));
             town.structs.add(struct);
         }
     }
@@ -1206,32 +1206,60 @@ final class Generator {
             }
         }
         List<String> tags = null;
+        Struct.Tag entityTag;
+        EntityType entityType;
+        if (uniqueFlags.get(Flag.Strategy.STYLE) == Flag.NETHER) {
+            switch (randomInt(2)) {
+            case 0:
+                entityType = EntityType.ZOMBIE_HORSE;
+                entityTag = Struct.Tag.ZOMBIE_HORSE;
+                break;
+            case 1: default:
+                entityType = EntityType.SKELETON_HORSE;
+                entityTag = Struct.Tag.SKELETON_HORSE;
+            }
+        } else {
+            switch (randomInt(16)) {
+            case 0: case 1: case 2:
+                entityType = EntityType.COW;
+                entityTag = Struct.Tag.COW;
+                break;
+            case 3: case 4: case 5:
+                entityType = EntityType.PIG;
+                entityTag = Struct.Tag.PIG;
+                break;
+            case 6: case 7: case 8:
+                entityType = EntityType.SHEEP;
+                entityTag = Struct.Tag.SHEEP;
+                break;
+            case 9: case 10: case 11:
+                entityType = EntityType.CHICKEN;
+                entityTag = Struct.Tag.CHICKEN;
+                break;
+            case 12:
+                entityType = EntityType.HORSE;
+                entityTag = Struct.Tag.HORSE;
+                break;
+            case 13:
+                entityType = EntityType.DONKEY;
+                entityTag = Struct.Tag.DONKEY;
+                break;
+            case 14:
+                entityType = EntityType.MULE;
+                entityTag = Struct.Tag.MULE;
+                break;
+            case 15: default:
+                entityType = EntityType.MUSHROOM_COW;
+                entityTag = Struct.Tag.MUSHROOM_COW;
+            }
+        }
         if (!animalBlocks.isEmpty()) {
             Collections.shuffle(animalBlocks, random);
             int animalCount = (animalBlocks.size() - 1) / 6 + 1;
-            EntityType et;
             int color = randomInt(16);
-            if (uniqueFlags.get(Flag.Strategy.STYLE) == Flag.NETHER) {
-                switch (randomInt(2)) {
-                case 0: et = EntityType.ZOMBIE_HORSE; break;
-                case 1: default: et = EntityType.SKELETON_HORSE;
-                }
-            } else {
-                switch (randomInt(16)) {
-                case 0: case 1: case 2: et = EntityType.COW; break;
-                case 3: case 4: case 5: et = EntityType.PIG; break;
-                case 6: case 7: case 8: et = EntityType.SHEEP; break;
-                case 9: case 10: case 11: et = EntityType.CHICKEN; break;
-                case 12: et = EntityType.HORSE; break;
-                case 13: et = EntityType.DONKEY; break;
-                case 14: et = EntityType.MULE; break;
-                case 15: default: et = EntityType.MUSHROOM_COW;
-                }
-            }
-            tags = Arrays.asList(et.name().toLowerCase());
             for (int i = 0; i < animalCount; i += 1) {
                 Block block = animalBlocks.get(i);
-                Entity e = block.getWorld().spawnEntity(block.getLocation().add(0.5, 0.0, 0.5), et);
+                Entity e = block.getWorld().spawnEntity(block.getLocation().add(0.5, 0.0, 0.5), entityType);
                 if (e instanceof Colorable) {
                     ((Colorable)e).setColor(DyeColor.values()[color]);
                 }
@@ -1240,7 +1268,7 @@ final class Generator {
         if (town != null) {
             Cuboid bb = new Cuboid(offset.getX(), offset.getY(), offset.getZ(),
                                    offset.getX() + width - 1, offset.getY() + 3, offset.getZ() + height - 1);
-            town.structs.add(new Struct(Struct.Type.PASTURE, bb, null, tags));
+            town.structs.add(new Struct(Struct.Type.PASTURE, bb, null, EnumSet.of(entityTag)));
         }
     }
 
@@ -1610,6 +1638,7 @@ final class Generator {
                 roofDoubleSlab = Tile.DOUBLE_ACACIA_WOOD_SLAB;
                 floor = ceiling = Tile.DOUBLE_STONE_SLAB;
                 pillar = fence = Tile.ACACIA_FENCE;
+                gate = Tile.ACACIA_FENCE_GATE;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.RED_SANDSTONE_SLAB;
                 stair = Tile.RED_SANDSTONE_STAIRS;

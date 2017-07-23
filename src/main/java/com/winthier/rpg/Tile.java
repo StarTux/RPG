@@ -280,6 +280,8 @@ final class Tile {
 
     static final Tile WOOL = of(Material.WOOL);
 
+    static final Tile MOB_SPAWNER = of(Material.MOB_SPAWNER);
+
     void setBlock(Block block) {
         block.setTypeIdAndData(mat.getId(), (byte)data, true);
         BukkitExploits.getInstance().setPlayerPlaced(block, mat != Material.AIR);

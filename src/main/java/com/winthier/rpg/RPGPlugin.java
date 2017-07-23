@@ -12,6 +12,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -39,6 +40,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDamageEvent;
 import org.bukkit.event.entity.EntityBreedEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerShearEntityEvent;
 import org.bukkit.inventory.ItemStack;
@@ -55,6 +57,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
     private boolean createTowns = false;
     private Reputations reputations;
     private Set<GameMode> allowedGameModes = EnumSet.of(GameMode.SURVIVAL, GameMode.ADVENTURE);
+    private Set<UUID> freeFalls = new HashSet<>();
 
     @Override
     public void onEnable() {
@@ -77,6 +80,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         event.addEntity(new NPCEntity(this));
         event.addEntity(new NPCSpeechEntity(this));
         event.addItem(new DeliveryItem(this));
+        event.addBlock(new CanonTravelBlock(this));
         worldName = getConfig().getString("worlds", "Resource");
         createTowns = getConfig().getBoolean("create_towns");
         if (world != null && world.isDirty()) world.save();
@@ -153,7 +157,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
                 sender.sendMessage("House size " + size + " generated with " + flags);
                 Debug.printHouse(house);
             } else if (structure.equals("fountain")) {
-                generator.plantFountain(player.getLocation().getBlock().getRelative(-size / 2, 0, -size / 2), size);
+                generator.plantFountain(player.getLocation().getBlock().getRelative(-size / 2, 0, -size / 2), size, null);
                 sender.sendMessage("Fountain generated");
             } else if (structure.equals("farm")) {
                 generator.plantFarm(player.getLocation().getBlock().getRelative(-size / 2, 0, -size / 2), size, size);
@@ -161,6 +165,11 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
             } else if (structure.equals("pasture")) {
                 generator.plantPasture(player.getLocation().getBlock().getRelative(-size / 2, 0, -size / 2), size, size);
                 sender.sendMessage("Pasture generated");
+            } else if (structure.equals("monsterbase")) {
+                House house = generator.generateHouse(size, size);
+                generator.plantMonsterBase(player.getLocation().getBlock().getRelative(-size / 2, 0, -size / 2), house, null);
+                sender.sendMessage("Monster base generated");
+                Debug.printHouse(house);
             } else if (structure.equals("name")) {
                 StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < 20; i += 1) sb.append(" ").append(generator.generateName(size));
@@ -192,10 +201,10 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
                 target = player;
             }
             sender.sendMessage("Reputations of " + target.getName() + ":");
-            List<RPGWorld.Fraction> fractions = new ArrayList<>();
-            for (RPGWorld.Fraction f: RPGWorld.Fraction.values()) fractions.add(f);
+            List<Fraction> fractions = new ArrayList<>();
+            for (Fraction f: Fraction.values()) fractions.add(f);
             Collections.sort(fractions, (b, a) -> Integer.compare(getReputations().getReputation(target, a), getReputations().getReputation(target, b)));
-            for (RPGWorld.Fraction fraction: fractions) {
+            for (Fraction fraction: fractions) {
                 sender.sendMessage("" + getReputations().getReputation(target, fraction) + ") " + fraction.name().toLowerCase());
             }
         } else {
@@ -214,7 +223,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
             return Arrays.asList("tp", "whereami", "gen", "givedelivery", "rep").stream().filter(i -> i.startsWith(term)).collect(Collectors.toList());
         } else if ("gen".equals(cmd) && args.length == 2) {
             String term = args[1].toLowerCase();
-            return Arrays.asList("town", "house", "fountain", "name").stream().filter(i -> i.startsWith(term)).collect(Collectors.toList());
+            return Arrays.asList("town", "house", "fountain", "monsterbase", "name").stream().filter(i -> i.startsWith(term)).collect(Collectors.toList());
         } else if ("gen".equals(cmd) && args.length >= 4) {
             String term = args[args.length - 1].toLowerCase();
             return Arrays.asList(Generator.Flag.values()).stream().filter(f -> f.name().toLowerCase().startsWith(term)).map(f -> f.name()).collect(Collectors.toList());
@@ -285,7 +294,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
             player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_DIGGING, duration, level), true);
             Location loc = block.getLocation().add(0.5, 0.5, 0.5);
             player.spawnParticle(Particle.VILLAGER_ANGRY, loc, 3, .2, .2, .2, 0.0);
-            player.playSound(loc, Sound.ENTITY_VILLAGER_HURT, 0.1f, 0.1f);
+            player.playSound(loc, Sound.ENTITY_VILLAGER_HURT, SoundCategory.MASTER, 0.1f, 0.1f);
         }
         if (!BukkitExploits.getInstance().isPlayerPlaced(block)) {
             for (RPGWorld.Quest quest: belonging.town.quests) {
@@ -390,5 +399,15 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_DIGGING, duration, level), true);
         Location loc = block.getLocation().add(0.5, 0.5, 0.5);
         player.playSound(loc, Sound.ENTITY_VILLAGER_HURT, 0.1f, 0.1f);
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOW)
+    public void onEntityDamage(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Player)) return;
+        if (event.getCause() != EntityDamageEvent.DamageCause.FALL) return;
+        Player player = (Player)event.getEntity();
+        if (!freeFalls.remove(player.getUniqueId())) return;
+        event.setCancelled(true);
+        player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_BIG_FALL, SoundCategory.MASTER, 1.0f, 0.8f);
     }
 }

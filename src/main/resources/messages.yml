@@ -113,7 +113,7 @@ quest_mine_success:
 quest_kill_stolen_baby_pets: [ rabbit, kitten, puppy, chick ]
 quest_kill:
 - The %singular% population around %town% has gotten out of hand. One even stole my %pet%.
-- My %pet% ran away because of the invading %singular army. Please find it.
+- My %pet% ran away because of the invading %singular% army. Please find it.
 - A hoard of %plural% was seen near my house the day before my %pet% disappeared... I miss her so much.
 - There has been an unusual amount of %plural% around %town%. One of them took my %pet%.
 quest_kill_success:

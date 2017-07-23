@@ -46,26 +46,6 @@ public final class DeliveryItem implements CustomItem, UncraftableItem, Tickable
         return new ItemStack(Material.WRITTEN_BOOK);
     }
 
-    Vec2 findNewDot(Block pb, ItemStack item, RPGWorld.NPC npc) {
-        Dirty.TagWrapper config = Dirty.TagWrapper.getItemConfigOf(item);
-        Vec2 v = new Vec2(pb.getX(), pb.getZ());
-        int dx = npc.home.x - v.x;
-        int dz = npc.home.z - v.y;
-        int dist = Math.max(Math.abs(dx), Math.abs(dz));
-        if (dist < 128) return new Vec2(npc.home.x, npc.home.z);
-        boolean b = plugin.getRandom().nextInt(Math.abs(dx) + Math.abs(dz)) < Math.abs(dx);
-        int relX, relZ;
-        int rel = 1 + plugin.getRandom().nextInt(16);
-        if (b) {
-            relX = dx > 0 ? 96 : -96;
-            relZ = dz > 0 ? rel : -rel;
-        } else {
-            relX = dx > 0 ? rel : -rel;
-            relZ = dz > 0 ? 96 : -96;
-        }
-        return v.relative(relX, relZ);
-    }
-
     @Override
     public void onTick(ItemContext context, int ticks) {
         if (ticks % 20 != 0) return;
@@ -94,27 +74,10 @@ public final class DeliveryItem implements CustomItem, UncraftableItem, Tickable
         if (npc == null) return;
         List<Integer> listDot = config.getIntList(KEY_DOT);
         Vec2 dot = config.isSet(KEY_DOT) ? new Vec2(config.getIntList(KEY_DOT)) : null;
-        Vec2 vecPlayer = new Vec2(pb.getX(), pb.getZ());
         Vec2 vecTarget = new Vec2(npc.home.x, npc.home.z);
-        if (town.area.contains(pb.getX(), pb.getZ())) {
-            if (!vecTarget.equals(dot)) {
-                dot = vecTarget;
-                config.setIntList("dot", dot.serialize());
-            }
-        } else if (dot == null || dot.distanceSquared(vecTarget) > vecPlayer.distanceSquared(vecTarget)) {
-            dot = findNewDot(pb, item, npc);
-            if (dot == null) return;
+        if (dot == null || !vecTarget.equals(dot)) {
+            dot = vecTarget;
             config.setIntList("dot", dot.serialize());
-        } else {
-            dot = new Vec2(listDot);
-            int dx = dot.x - pb.getX();
-            int dz = dot.y - pb.getZ();
-            int dist = Math.max(Math.abs(dx), Math.abs(dz));
-            if (dist <= 8) {
-                dot = findNewDot(pb, item, npc);
-                if (dot == null) return;
-                config.setIntList("dot", dot.serialize());
-            }
         }
         MetadataValue meta = null;
         for (MetadataValue m: player.getMetadata("MiniMapCursors")) {

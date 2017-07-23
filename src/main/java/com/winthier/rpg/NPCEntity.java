@@ -253,7 +253,7 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
                 }
             }
             if (message == null) {
-                message = rpgworld.onPlayerInteractNPC(player, townId, npcId);
+                message = rpgworld.onPlayerInteractNPC(player, this, townId, npcId);
             }
             if (message == null) return;
             NPCSpeechEntity.Watcher speechWatcher = (NPCSpeechEntity.Watcher)CustomPlugin.getInstance().getEntityManager().spawnEntity(entity.getEyeLocation().add(0, 5, 0), NPCSpeechEntity.CUSTOM_ID);

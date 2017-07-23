@@ -13,7 +13,10 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
+import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.EntityType;
+import org.bukkit.ChatColor;
 
 @Value @RequiredArgsConstructor
 final class Vec2 {
@@ -166,11 +169,26 @@ enum Facing {
 
 final class Struct {
     enum Type {
-        HOUSE, ROOM, FOUNTAIN, FARM, CROPS, PASTURE, UNKNOWN;
+        HOUSE, ROOM, FOUNTAIN, FARM, CROPS, PASTURE, MONSTER_BASE, MONSTER_ROOM, UNKNOWN;
     }
     enum Tag {
         NETHER_WART, WHEAT, POTATO, CARROT, BEETROOT,
-        COW, PIG, CHICKEN, SHEEP, MUSHROOM_COW, HORSE, ZOMBIE_HORSE, SKELETON_HORSE, DONKEY, MULE;
+        COW, PIG, CHICKEN, SHEEP, MUSHROOM_COW, HORSE, ZOMBIE_HORSE, SKELETON_HORSE, DONKEY, MULE,
+        ZOMBIE, HUSK, SKELETON, STRAY, CREEPER, SPIDER, CAVE_SPIDER, ENDERMAN;
+        final EntityType entityType;
+        Tag() {
+            EntityType et = null;
+            try {
+                et = EntityType.valueOf(name());
+            } catch (IllegalArgumentException iae) {}
+            this.entityType = et;
+        }
+        static Tag of (EntityType et) {
+            for (Tag tag: Tag.values()) {
+                if (tag.entityType == et) return tag;
+            }
+            return null;
+        }
     }
 
     final Type type;
@@ -211,5 +229,25 @@ final class Struct {
             result.addAll(sub.deepSubs());
         }
         return result;
+    }
+}
+
+enum Fraction {
+    VILLAGER(5, Arrays.asList(EntityType.VILLAGER), ChatColor.GREEN),
+    SKELETON(5, Arrays.asList(EntityType.SKELETON, EntityType.STRAY), ChatColor.WHITE),
+    ZOMBIE(5, Arrays.asList(EntityType.ZOMBIE, EntityType.HUSK), ChatColor.DARK_GREEN),
+    ZOMBIE_VILLAGER(3, Arrays.asList(EntityType.ZOMBIE_VILLAGER), ChatColor.DARK_GREEN),
+    OCCULT(2, Arrays.asList(EntityType.WITCH, EntityType.EVOKER, EntityType.VINDICATOR), ChatColor.LIGHT_PURPLE),
+    NETHER(1, Arrays.asList(EntityType.PIG_ZOMBIE, EntityType.BLAZE, EntityType.WITHER_SKELETON), ChatColor.RED),
+    CREEPER(0, Arrays.asList(EntityType.CREEPER), ChatColor.DARK_GREEN);
+
+    public final int chance;
+    public final List<EntityType> villagerTypes;
+    public final ChatColor color;
+
+    Fraction(int chance, List<EntityType> villagerTypes, ChatColor color) {
+        this.chance = chance;
+        this.villagerTypes = villagerTypes;
+        this.color = color;
     }
 }

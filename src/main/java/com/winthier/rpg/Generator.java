@@ -39,7 +39,6 @@ final class Generator {
     final Map<Vec2, Block> highestBlocks = new HashMap<>();
     private Set<Flag> flags = EnumSet.noneOf(Flag.class);
     private Map<Flag.Strategy, Flag> uniqueFlags = new EnumMap<>(Flag.Strategy.class);
-    private Town town;
 
     int randomInt(int i) {
         if (i < 2) return 0;
@@ -150,15 +149,16 @@ final class Generator {
         List<Chunk> todo = new ArrayList<>();
         todo.add(centerChunk);
         Set<Chunk> done = new HashSet<>();
-        List<Vec2> chunks = new ArrayList<>();
-        List<Integer> allHeights = new ArrayList<>();
+        List<Vec2> chunks = new ArrayList<>(sizeInChunks);
+        List<Integer> allHeights = new ArrayList<>(16 * 16 * sizeInChunks);
         while (!todo.isEmpty() && chunks.size() < sizeInChunks) {
             Chunk chunk = todo.remove(0);
             if (done.contains(chunk)) continue;
             done.add(chunk);
             if (chunk.getX() <= chunkMin.getX() || chunk.getX() >= chunkMax.getX() ||
                 chunk.getZ() <= chunkMin.getZ() || chunk.getZ() >= chunkMax.getZ()) continue;
-            List<Integer> heights = new ArrayList<>();
+            List<Integer> heights = new ArrayList<>(16 * 16);
+            boolean fits = true;
             for (int z = 0; z < 16; z += 1) {
                 for (int x = 0; x < 16; x += 1) {
                     Block block = findHighestBlock(chunk.getBlock(x, 0, z));
@@ -166,49 +166,71 @@ final class Generator {
                         || block.getType() == Material.ICE
                         || block.getType() == Material.PACKED_ICE) {
                         heights.add(0);
+                        fits = false;
+                        break;
                     } else {
                         heights.add(block.getY() + 1);
                     }
                 }
+                if (!fits) break;
             }
-            List<Integer> newAllHeights = new ArrayList<>(allHeights);
-            newAllHeights.addAll(heights);
-            Collections.sort(newAllHeights);
-            int median = newAllHeights.get(newAllHeights.size() / 2);
-            boolean fits = true;
+            if (!fits) continue;
+            Collections.sort(heights);
+            int median = heights.get(heights.size() / 2);
             for (int i: heights) {
                 if (Math.abs(i - median) > 8) {
                     fits = false;
                     break;
                 }
             }
-            if (median > 0 && fits) {
-                allHeights.addAll(heights);
-                chunks.add(new Vec2(chunk.getX(), chunk.getZ()));
-                Chunk a = world.getChunkAt(chunk.getX() + 1, chunk.getZ() + 0);
-                Chunk b = world.getChunkAt(chunk.getX() + 0, chunk.getZ() + 1);
-                Chunk c = world.getChunkAt(chunk.getX() - 1, chunk.getZ() + 0);
-                Chunk d = world.getChunkAt(chunk.getX() + 0, chunk.getZ() - 1);
-                if (!done.contains(a)) todo.add(a);
-                if (!done.contains(b)) todo.add(b);
-                if (!done.contains(c)) todo.add(c);
-                if (!done.contains(d)) todo.add(d);
-                Collections.shuffle(todo, random);
+            if (!fits) continue;
+            List<Integer> newAllHeights = new ArrayList<>(allHeights);
+            newAllHeights.addAll(heights);
+            Collections.sort(newAllHeights);
+            median = newAllHeights.get(newAllHeights.size() / 2);
+            for (int i: heights) {
+                if (Math.abs(i - median) > 16) {
+                    fits = false;
+                    break;
+                }
             }
+            if (!fits) continue;
+            allHeights.addAll(heights);
+            chunks.add(new Vec2(chunk.getX(), chunk.getZ()));
+            Chunk a = world.getChunkAt(chunk.getX() + 1, chunk.getZ() + 0);
+            Chunk b = world.getChunkAt(chunk.getX() + 0, chunk.getZ() + 1);
+            Chunk c = world.getChunkAt(chunk.getX() - 1, chunk.getZ() + 0);
+            Chunk d = world.getChunkAt(chunk.getX() + 0, chunk.getZ() - 1);
+            if (!done.contains(a)) todo.add(a);
+            if (!done.contains(b)) todo.add(b);
+            if (!done.contains(c)) todo.add(c);
+            if (!done.contains(d)) todo.add(d);
+            Collections.shuffle(todo, random);
         }
         if (chunks.size() < sizeInChunks) return null;
         int ax = chunks.get(0).x;
         int bx = chunks.get(0).x;
         int ay = chunks.get(0).y;
         int by = chunks.get(0).y;
+        List<Vec2> borderChunks = new ArrayList<>();
         for (Vec2 chunk: chunks) {
             if (chunk.x < ax) ax = chunk.x;
             if (chunk.x > bx) bx = chunk.x;
             if (chunk.y < ay) ay = chunk.y;
             if (chunk.y > by) by = chunk.y;
+            // final Vec2[] nbors = {chunk.relative(0, -1), chunk.relative(1, 0), chunk.relative(0, 1), chunk.relative(-1, 0),
+            //                       chunk.relative(-1, -1), chunk.relative(1, -1), chunk.relative(1, 1), chunk.relative(-1, 1)};
+            // for (Vec2 nbor: nbors) if (!chunks.contains(nbor)) borderChunks.add(nbor);
         }
-        this.town = new Town(ax * 16, ay * 16, bx * 16 + 15, by * 16 + 15, chunks);
-        return this.town;
+        List<Vec2> wilderChunks = new ArrayList<>();
+        for (int y = ay - 6; y <= by + 6; y += 1) {
+            for (int x = ax - 6; x <= bx + 6; x += 1) {
+                if (x >= ax - 1 && x <= by + 1 && y >= ay - 1 && y <= by - 1) {
+                    wilderChunks.add(new Vec2(x, y));
+                }
+            }
+        }
+        return new Town(ax * 16, ay * 16, bx * 16 + 15, by * 16 + 15, chunks, wilderChunks);
     }
 
     void plantTown(World world, Town town) {
@@ -262,21 +284,21 @@ final class Generator {
                 int size = 4 + randomInt(2);
                 int offx = 1 + randomInt(14 - size);
                 int offy = 1 + randomInt(14 - size);
-                plantFountain(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), size);
+                town.structs.add(plantFountain(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), size, town));
             } else if (farms > 0) {
                 farms -= 1;
                 int width = 7 + randomInt(3) * 2;
                 int height = 7 + randomInt(3) * 2;
                 int offx = 1 + randomInt(14 - width);
                 int offy = 1 + randomInt(14 - height);
-                plantFarm(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), width, height);
+                town.structs.add(plantFarm(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), width, height));
             } else if (pastures > 0) {
                 pastures -= 1;
                 int width = 8 + randomInt(7);
                 int height = 8 + randomInt(7);
                 int offx = 1 + randomInt(14 - width);
                 int offy = 1 + randomInt(14 - height);
-                plantPasture(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), width, height);
+                town.structs.add(plantPasture(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), width, height));
             } else {
                 int width = 10 + randomInt(5) - randomInt(3);
                 int height = 10 + randomInt(5) - randomInt(3);
@@ -284,16 +306,54 @@ final class Generator {
                 int offy = height >= 13 ? 1 : 1 + randomInt(13 - height);
                 House house = generateHouse(width, height);
                 town.houses.add(house);
-                plantHouse(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), house);
+                town.structs.add(plantHouse(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), house));
+            }
+        }
+        int monsterCamps = 1;
+        Collections.shuffle(town.wilderChunks, random);
+        Vec2 centerChunk = new Vec2((town.ax + town.bx) / 2, (town.ay + town.by) / 2);
+        Collections.sort(town.wilderChunks, (a, b) -> Integer.compare(b.maxDistance(centerChunk), a.maxDistance(centerChunk)));
+        for (Vec2 chunk: town.wilderChunks) {
+            int totalWild = monsterCamps;
+            if (totalWild <= 0) break;
+            Chunk bchunk = world.getChunkAt(chunk.x, chunk.y);
+            List<Integer> heights = new ArrayList<>(16 * 16);
+            boolean fits = true;
+            for (int z = 0; z < 16; z += 1) {
+                for (int x = 0; x < 16; x += 1) {
+                    Block block = findHighestBlock(bchunk.getBlock(x, 0, z));
+                    if (block.isLiquid()
+                        || block.getType() == Material.ICE
+                        || block.getType() == Material.PACKED_ICE) {
+                        heights.add(0);
+                        fits = false;
+                        break;
+                    } else {
+                        heights.add(block.getY() + 1);
+                    }
+                }
+                if (!fits) break;
+            }
+            if (!fits) continue;
+            Collections.sort(heights);
+            int median = heights.get(heights.size() / 2);
+            for (int i: heights) {
+                if (Math.abs(i - median) > 4) {
+                    fits = false;
+                    break;
+                }
+            }
+            if (!fits) continue;
+            if (monsterCamps > 0) {
+                monsterCamps -= 1;
+                EnumSet<Flag> oldFlags = EnumSet.copyOf(flags);
+                House house = generateHouse(16, 16);
+                town.structs.add(plantMonsterBase(world.getBlockAt(chunk.x * 16, 0, chunk.y * 16), house, town));
             }
         }
     }
 
-    void plantMonument(Block center) {
-        Block block = findHighestBlock(center);
-    }
-
-    void plantHouse(Block start, House house) {
+    Struct plantHouse(Block start, House house) {
         Flag flagAltitude = uniqueFlags.get(Flag.Strategy.ALTITUDE);
         Map<Vec2, RoomTile> tiles = house.tiles;
         boolean noRoof = flags.contains(Flag.NO_ROOF) || flagAltitude == Flag.UNDERGROUND;
@@ -331,7 +391,6 @@ final class Generator {
             bx = bz = Integer.MIN_VALUE;
             int ay = floorLevel;
             int by = floorLevel + roomHeight;
-            house.boundingBox = new Cuboid(ax, ay, az, bx, by, bz);
             for (Room room: house.rooms) {
                 Cuboid bb = new Cuboid(room.ax + offset.getX(), ay, room.ay + offset.getZ(),
                                        room.bx + offset.getX(), by, room.by + offset.getZ());
@@ -909,14 +968,12 @@ final class Generator {
             house.tiles.put(vec, RoomTile.NPC);
             house.npcs.add(house.offset.relative(vec.x, 1, vec.y));
         }
-        if (town != null) {
-            town.structs.add(new Struct(Struct.Type.HOUSE, house.boundingBox,
-                                        house.rooms.stream().map(r -> new Struct(Struct.Type.ROOM, r.boundingBox, null, null)).collect(Collectors.toList()),
-                                        null));
-        }
+        return new Struct(Struct.Type.HOUSE, house.boundingBox,
+                          house.rooms.stream().map(r -> new Struct(Struct.Type.ROOM, r.boundingBox, null, null)).collect(Collectors.toList()),
+                          null);
     }
 
-    void plantFountain(Block start, int size) {
+    Struct plantFountain(Block start, int size, Town town) {
         List<Integer> highest = new ArrayList<>();
         Map<Vec2, Integer> tiles = new HashMap<>();
         for (int y = 0; y < size; y += 1) {
@@ -1027,14 +1084,12 @@ final class Generator {
         if (town != null) sign.setLine(2, town.name);
         sign.setLine(3, underscore);
         sign.update();
-        if (town != null) {
-            Cuboid bb = new Cuboid(offset.getX(), offset.getY() - 4, offset.getZ(),
-                                   offset.getX() + size, offset.getY() + height, offset.getZ() + size);
-            town.structs.add(new Struct(Struct.Type.FOUNTAIN, bb, null, null));
-        }
+        Cuboid bb = new Cuboid(offset.getX(), offset.getY() - 4, offset.getZ(),
+                               offset.getX() + size, offset.getY() + height, offset.getZ() + size);
+        return new Struct(Struct.Type.FOUNTAIN, bb, null, null);
     }
 
-    void plantFarm(Block start, int width, int height) {
+    Struct plantFarm(Block start, int width, int height) {
         List<Integer> highest = new ArrayList<>();
         Map<Vec2, Integer> tiles = new HashMap<>();
         for (int y = 0; y < height; y += 1) {
@@ -1111,7 +1166,7 @@ final class Generator {
                     tileBelow.setBlock(foundation);
                     foundation = foundation.getRelative(0, -1, 0);
                 }
-                for (int i = 1; i <= 2; i += 2) block.getRelative(0, i, 0).setType(Material.AIR);
+                for (int i = 1; i <= 3; i += i) block.getRelative(0, i, 0).setType(Material.AIR);
                 tile.setBlockNoPhysics(block);
                 tileAbove.setBlockNoPhysics(block.getRelative(0, 1, 0));
                 if (isCenter) {
@@ -1119,19 +1174,16 @@ final class Generator {
                 }
             }
         }
-        if (town != null) {
-            Cuboid bb = new Cuboid(offset.getX(), offset.getY(), offset.getZ(),
-                                   offset.getX() + width - 1, offset.getY() + 3, offset.getZ() + height - 1);
-            Cuboid bb2 = new Cuboid(offset.getX() + 1, offset.getY() + 1, offset.getZ() + 1,
-                                    offset.getX() + width - 2, offset.getY() + 1, offset.getZ() + height - 2);
-            Struct struct = new Struct(Struct.Type.FARM, bb,
-                                       Arrays.asList(new Struct(Struct.Type.CROPS, bb2, null, null)),
-                                       EnumSet.of(cropTag));
-            town.structs.add(struct);
-        }
+        Cuboid bb = new Cuboid(offset.getX(), offset.getY(), offset.getZ(),
+                               offset.getX() + width - 1, offset.getY() + 3, offset.getZ() + height - 1);
+        Cuboid bb2 = new Cuboid(offset.getX() + 1, offset.getY() + 1, offset.getZ() + 1,
+                                offset.getX() + width - 2, offset.getY() + 1, offset.getZ() + height - 2);
+        return new Struct(Struct.Type.FARM, bb,
+                          Arrays.asList(new Struct(Struct.Type.CROPS, bb2, null, null)),
+                          EnumSet.of(cropTag));
     }
 
-    void plantPasture(Block start, int width, int height) {
+    Struct plantPasture(Block start, int width, int height) {
         List<Integer> highest = new ArrayList<>();
         Map<Vec2, Integer> tiles = new HashMap<>();
         for (int y = 0; y < height; y += 1) {
@@ -1194,7 +1246,7 @@ final class Generator {
                     tileBelow.setBlock(foundation);
                     foundation = foundation.getRelative(0, -1, 0);
                 }
-                for (int i = 1; i <= 2; i += 1) block.getRelative(0, i, 0).setType(Material.AIR);
+                for (int i = 1; i <= 3; i += 1) block.getRelative(0, i, 0).setType(Material.AIR);
                 tile.setBlock(block);
                 tileAbove.setBlock(block.getRelative(0, 1, 0));
                 if (isCorner) {
@@ -1265,11 +1317,100 @@ final class Generator {
                 }
             }
         }
-        if (town != null) {
-            Cuboid bb = new Cuboid(offset.getX(), offset.getY(), offset.getZ(),
-                                   offset.getX() + width - 1, offset.getY() + 3, offset.getZ() + height - 1);
-            town.structs.add(new Struct(Struct.Type.PASTURE, bb, null, EnumSet.of(entityTag)));
+        Cuboid bb = new Cuboid(offset.getX(), offset.getY(), offset.getZ(),
+                               offset.getX() + width - 1, offset.getY() + 3, offset.getZ() + height - 1);
+        return new Struct(Struct.Type.PASTURE, bb, null, EnumSet.of(entityTag));
+    }
+
+    Struct plantMonsterBase(Block start, House house, Town town) {
+        List<Integer> heights = new ArrayList<>(house.tiles.size());
+        for (Vec2 vec: house.tiles.keySet()) {
+            heights.add(findHighestBlock(start.getRelative(vec.x, 0, vec.y)).getY());
         }
+        int roomHeight = 8;
+        Collections.sort(heights);
+        int floorLevel = heights.get(heights.size() / 2) - roomHeight - 1;
+        Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
+        {
+            int ax, az, bx, bz;
+            ax = az = Integer.MAX_VALUE;
+            bx = bz = Integer.MIN_VALUE;
+            int ay = floorLevel;
+            int by = floorLevel + roomHeight;
+            for (Room room: house.rooms) {
+                Cuboid bb = new Cuboid(room.ax + offset.getX(), ay, room.ay + offset.getZ(),
+                                       room.bx + offset.getX(), by, room.by + offset.getZ());
+                room.boundingBox = bb;
+                if (ax > bb.ax) ax = bb.ax;
+                if (az > bb.az) az = bb.az;
+                if (bx < bb.bx) bx = bb.bx;
+                if (bz < bb.bz) bz = bb.bz;
+            }
+            house.boundingBox = new Cuboid(ax, ay, az, bx, by, bz);
+        }
+        for (Vec2 vec: house.tiles.keySet()) {
+            Block floor = offset.getRelative(vec.x, 0, vec.y);
+            RoomTile tile = house.tiles.get(vec);
+            if (random.nextBoolean()) {
+                Tile.COBBLESTONE.setBlock(floor);
+            } else {
+                Tile.MOSSY_COBBLESTONE.setBlock(floor);
+            }
+            Block ceil = floor.getRelative(0, roomHeight, 0);
+            if (ceil.getType().isSolid()) {
+                if (random.nextBoolean()) {
+                    Tile.COBBLESTONE.setBlock(ceil);
+                } else {
+                    Tile.MOSSY_COBBLESTONE.setBlock(ceil);
+                }
+            }
+            for (int i = 1; i < roomHeight; i += 1) {
+                Block block = floor.getRelative(0, i, 0);
+                switch (tile) {
+                case DOOR:
+                    if (i < 3) {
+                        Tile.AIR.setBlock(block);
+                        break;
+                    }
+                    // fallthrough
+                case WALL:
+                case WINDOW:
+                    switch (random.nextInt(10)) {
+                    case 0: Tile.MOSSY_STONE_BRICKS.setBlock(block); break;
+                    case 1: Tile.CRACKED_STONE_BRICKS.setBlock(block); break;
+                    default: Tile.STONE_BRICKS.setBlock(block);
+                    }
+                    break;
+                case FLOOR:
+                default:
+                    Tile.AIR.setBlock(block);
+                }
+            }
+        }
+        List<Struct.Tag> allTags = Arrays.asList(Struct.Tag.ZOMBIE, Struct.Tag.HUSK, Struct.Tag.SKELETON, Struct.Tag.STRAY, Struct.Tag.CREEPER, Struct.Tag.SPIDER, Struct.Tag.CAVE_SPIDER);
+        List<Struct.Tag> possibleTags = new ArrayList<>(allTags.size());
+        for (Struct.Tag tag: allTags) {
+            if (town == null || town.fraction == null || !town.fraction.villagerTypes.contains(tag.entityType)) {
+                possibleTags.add(tag);
+            }
+        }
+        Set<Struct.Tag> tags = EnumSet.noneOf(Struct.Tag.class);
+        if (!possibleTags.isEmpty()) {
+            Struct.Tag tag = possibleTags.get(random.nextInt(possibleTags.size()));
+            tags.add(tag);
+            for (Room room: house.rooms) {
+                int x = random.nextInt(room.width() - 2) + 1;
+                int z = random.nextInt(room.height() - 2) + 1;
+                Block block = offset.getRelative(room.ax + x, 2, room.ay + z);
+                Tile.MOB_SPAWNER.setBlock(block);
+                org.bukkit.block.CreatureSpawner state = (org.bukkit.block.CreatureSpawner)block.getState();
+                state.setSpawnedType(tag.entityType);
+                state.update();
+            }
+        }
+        return new Struct(Struct.Type.MONSTER_BASE, house.boundingBox,
+                          house.rooms.stream().map(r -> new Struct(Struct.Type.MONSTER_ROOM, r.boundingBox, null, null)).collect(Collectors.toList()),
+                          tags);
     }
 
     House generateHouse(int width, int height) {
@@ -1496,9 +1637,11 @@ final class Generator {
     static final class Town {
         final int ax, ay, bx, by;
         final List<Vec2> chunks;
+        final List<Vec2> wilderChunks;
         final List<House> houses = new ArrayList<>();
         final List<Struct> structs = new ArrayList<>();
         String name;
+        Fraction fraction;
     }
 
     enum RoomTile {

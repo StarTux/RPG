@@ -24,6 +24,9 @@ import lombok.Value;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
+import org.bukkit.SoundCategory;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.configuration.ConfigurationSection;
@@ -89,7 +92,7 @@ final class RPGWorld {
 
         Town(Rectangle area, String name, Fraction fraction) {
             this.area = area;
-            this.questArea = area.grow(64);
+            this.questArea = area.grow(96);
             this.name = name;
             this.fraction = fraction;
         }
@@ -108,16 +111,9 @@ final class RPGWorld {
                 this.structs.add(new Struct(section));
             }
             this.area = new Rectangle(config.getIntegerList("area"));
-            this.questArea = area.grow(64);
+            this.questArea = area.grow(96);
             this.name = config.getString("name");
-            Fraction fraction;
-            try {
-                fraction = Fraction.valueOf(config.getString("fraction", "VILLAGER").toUpperCase());
-            } catch (IllegalArgumentException iae) {
-                fraction = Fraction.VILLAGER;
-                iae.printStackTrace();
-            }
-            this.fraction = fraction;
+            this.fraction = Fraction.valueOf(config.getString("fraction"));
             this.tags.addAll(config.getStringList("tags"));
             this.visited = config.getBoolean("visited");
         }
@@ -125,7 +121,7 @@ final class RPGWorld {
         Map<String, Object> serialize() {
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("name", name);
-            result.put("fraction", fraction.name().toLowerCase());
+            result.put("fraction", fraction.name());
             result.put("area", area.serialize());
             result.put("tags", tags);
             result.put("visited", visited);
@@ -318,7 +314,7 @@ final class RPGWorld {
             return false;
         }
         Rectangle area = new Rectangle(gt.ax, gt.ay, gt.bx, gt.by);
-        Rectangle questArea = area.grow(64);
+        Rectangle questArea = area.grow(96);
         for (Town town: towns) {
             if (town.questArea.intersects(questArea)) {
                 return false;
@@ -351,6 +347,7 @@ final class RPGWorld {
         Town town = new Town(area, townName, fraction);
         town.tags.addAll(flags.stream().map(f -> f.name().toLowerCase()).collect(Collectors.toList()));
         gt.name = townName;
+        gt.fraction = fraction;
         // Plant the town
         final String doTileDrops = "doTileDrops";
         String oldGameRuleValue = world.getGameRuleValue(doTileDrops);
@@ -497,7 +494,7 @@ final class RPGWorld {
         return town.npcs.get(npcId);
     }
 
-    String onPlayerInteractNPC(Player player, int townId, int npcId) {
+    String onPlayerInteractNPC(Player player, NPCEntity.Watcher entity, int townId, int npcId) {
         if (townId >= towns.size()) return "Hello World";
         Town town = towns.get(townId);
         if (npcId >= town.npcs.size()) return "Hello World";
@@ -535,7 +532,9 @@ final class RPGWorld {
                     result = quest.messages.get(Quest.MessageType.SUCCESS);
                     quest.state = Quest.State.RETURNED;
                     dirty = true;
-                    // TODO
+                    plugin.getReputations().giveReputation(player, town.fraction, 10);
+                    player.spawnParticle(Particle.HEART, entity.getEntity().getEyeLocation().add(0, 0.5, 0), 1, 0, 0, 0, 0);
+                    player.playSound(entity.getEntity().getEyeLocation(), Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER, 0.5f, 1.75f);
                 } else {
                     result = quest.messages.get(Quest.MessageType.EXPIRED);
                 }
@@ -549,26 +548,6 @@ final class RPGWorld {
                 }
             }
             return result;
-        }
-    }
-
-    enum Fraction {
-        VILLAGER(5, Arrays.asList(EntityType.VILLAGER), ChatColor.GREEN),
-        SKELETON(5, Arrays.asList(EntityType.SKELETON, EntityType.STRAY), ChatColor.WHITE),
-        ZOMBIE(5, Arrays.asList(EntityType.ZOMBIE, EntityType.HUSK), ChatColor.DARK_GREEN),
-        ZOMBIE_VILLAGER(3, Arrays.asList(EntityType.ZOMBIE_VILLAGER), ChatColor.DARK_GREEN),
-        OCCULT(2, Arrays.asList(EntityType.WITCH, EntityType.EVOKER, EntityType.VINDICATOR), ChatColor.LIGHT_PURPLE),
-        NETHER(1, Arrays.asList(EntityType.PIG_ZOMBIE, EntityType.BLAZE, EntityType.WITHER_SKELETON), ChatColor.RED),
-        CREEPER(0, Arrays.asList(EntityType.CREEPER), ChatColor.DARK_GREEN);
-
-        public final int chance;
-        public final List<EntityType> villagerTypes;
-        public final ChatColor color;
-
-        Fraction(int chance, List<EntityType> villagerTypes, ChatColor color) {
-            this.chance = chance;
-            this.villagerTypes = villagerTypes;
-            this.color = color;
         }
     }
 
@@ -622,7 +601,6 @@ final class RPGWorld {
                 for (Struct struct: town.structs) {
                     if (struct.boundingBox.contains(x, y, z)) {
                         result.struct = struct;
-                        result.structs.add(struct);
                         result.tags.addAll(struct.tags);
                         for (Struct sub: struct.deepSubs()) {
                             if (sub.boundingBox.contains(x, y, z)) {
@@ -703,7 +681,8 @@ final class RPGWorld {
                       + town.name + ".\n\n"
                       + plugin.getMessages().deal(Messages.Type.SYNONYM_SINCERELY) + ", "
                       + senderName + ".",
-                      "If you do not know where to find " + npc.name + ", check your Mini Map and follow the white dots.\n\nTo hand this item over, left-click the recipient with it.");
+                      "If you do not know where to find " + npc.name + ", check your Mini Map and follow the white dots.\n\nThe canon travel station at Spawn will be happy to shoot you to " + town.name + ".",
+                      "To hand this item over, left-click the recipient with it.");
         meta.setAuthor(senderName);
         meta.setGeneration(BookMeta.Generation.ORIGINAL);
         item.setItemMeta(meta);
@@ -726,12 +705,12 @@ final class RPGWorld {
         switch (quest.type) {
         case MINE:
             String gemstone;
-            String fine = plugin.getMessages().deal(Messages.Type.SYNONYM_FINE_ITEM);
+            String fine = Msg.capitalize(plugin.getMessages().deal(Messages.Type.SYNONYM_FINE_ITEM));
             String ore = quest.what.name().toLowerCase();
             String legendary = plugin.getMessages().deal(Messages.Type.SYNONYM_LEGENDARY_ITEM);
             switch (plugin.getRandom().nextInt(10)) {
-            case 0: gemstone = Msg.capitalize(fine) + " " + Msg.capitalize(ore) + " of " + town.name; break;
-            case 1: gemstone = Msg.capitalize(fine) + " " + town.name + " " + Msg.capitalize(ore); break;
+            case 0: gemstone = fine + " " + Msg.capitalize(ore) + " of " + town.name; break;
+            case 1: gemstone = fine + " " + town.name + " " + Msg.capitalize(ore); break;
             case 2: default: gemstone = town.name + " " + fine + " " + Msg.capitalize(ore);
             }
             quest.messages.put(Quest.MessageType.DESCRIPTION, plugin.getMessages().deal(Messages.Type.QUEST_MINE));

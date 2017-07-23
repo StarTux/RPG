@@ -23,7 +23,7 @@ import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
 @RequiredArgsConstructor
-public class CanonTravelBlock implements CustomBlock {
+public final class CanonTravelBlock implements CustomBlock {
     public static final String CUSTOM_ID = "rpg:canon_travel";
     private final RPGPlugin plugin;
 
@@ -130,7 +130,7 @@ public class CanonTravelBlock implements CustomBlock {
             int cy = (data.town.area.ay + data.town.area.by) / 2;
             int dx = cx < 0 ? 1 : -1;
             int dy = cy < 0 ? 1 : -1;
-            int full = 400;
+            int full = 250;
             int part = plugin.getRandom().nextInt(full);
             int x, y;
             if (plugin.getRandom().nextBoolean()) {

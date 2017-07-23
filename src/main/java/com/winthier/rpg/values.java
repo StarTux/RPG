@@ -169,7 +169,7 @@ enum Facing {
 
 final class Struct {
     enum Type {
-        HOUSE, ROOM, FOUNTAIN, FARM, CROPS, PASTURE, MINE, MONSTER_BASE, MONSTER_ROOM, UNKNOWN;
+        HOUSE, ROOM, FOUNTAIN, FARM, CROPS, PASTURE, MINE, LAIR, LAIR_ROOM, UNKNOWN;
     }
     enum Tag {
         NETHER_WART(Tile.of(Material.NETHER_WARTS, 3)),

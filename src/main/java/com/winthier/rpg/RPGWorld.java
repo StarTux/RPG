@@ -42,6 +42,7 @@ final class RPGWorld {
     final RPGPlugin plugin;
     final World world;
     final List<Town> towns = new ArrayList<>();
+    final Set<UUID> deliveries = new HashSet<>();
     boolean dirty = false;
     int addTownCooldown = 0;
     int ticks;
@@ -59,6 +60,7 @@ final class RPGWorld {
             ConfigurationSection section = config.createSection("tmp", map);
             towns.add(new Town(section));
         }
+        deliveries.addAll(config.getStringList("deliveries").stream().map(s -> UUID.fromString(s)).collect(Collectors.toList()));
         timestamp = config.getLong("timestamp", timestamp);
     }
 
@@ -66,6 +68,7 @@ final class RPGWorld {
         dirty = false;
         YamlConfiguration config = new YamlConfiguration();
         config.set("towns", towns.stream().map(t -> t.serialize()).collect(Collectors.toList()));
+        config.set("deliveries", deliveries.stream().map(u -> u.toString()).collect(Collectors.toList()));
         config.set("timestamp", timestamp);
         try {
             config.save(new File(world.getWorldFolder(), "winthier.rpg.yml"));
@@ -184,14 +187,16 @@ final class RPGWorld {
         final Struct.Tag what;
         // State
         int amount = 16;
+        int reputation = 10;
         int minReputation = 0;
         final Map<UUID, Integer> progress = new HashMap<>();
         final Map<MessageType, String> messages = new EnumMap<>(MessageType.class);
         State state = State.INIT;
         boolean unlocksNext;
+        String tokenName;
 
         enum Type {
-            MINE, KILL, SHEAR, BREED, TAME, HARVEST, FIND_MONSTER_BASE;
+            MINE, FIND_GEM, KILL, SHEAR, BREED, TAME, HARVEST, FIND_LAIR;
         }
         enum State {
             INIT, ENABLED, COMPLETED, RETURNED;
@@ -209,18 +214,20 @@ final class RPGWorld {
             type = Type.valueOf(config.getString("type"));
             what = Struct.Tag.valueOf(config.getString("what"));
             state = State.valueOf(config.getString("state"));
-            this.amount = config.getInt("amount");
+            amount = config.getInt("amount");
+            reputation = config.getInt("reputation");
+            minReputation = config.getInt("min_reputation", 0);
+            unlocksNext = config.getBoolean("unlocks_next");
             ConfigurationSection section = config.getConfigurationSection("progress");
             if (section != null) {
                 for (String key: section.getKeys(false)) {
                     progress.put(UUID.fromString(key), section.getInt(key));
                 }
             }
-            minReputation = config.getInt("min_reputation", 0);
-            unlocksNext = config.getBoolean("unlocks_next");
             for (MessageType mt: MessageType.values()) {
                 messages.put(mt, config.getString("message_" + mt.name().toLowerCase()));
             }
+            if (config.isSet("token_name")) tokenName = config.getString("token_name");
         }
 
         Map<String, Object> serialize() {
@@ -229,9 +236,11 @@ final class RPGWorld {
             result.put("what", what.name());
             result.put("state", state.name());
             result.put("amount", amount);
-            result.put("progress", progress.entrySet().stream().collect(Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue())));
+            result.put("reputation", reputation);
             result.put("min_reputation", minReputation);
+            result.put("progress", progress.entrySet().stream().collect(Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue())));
             if (unlocksNext) result.put("unlocks_next", unlocksNext);
+            if (tokenName != null) result.put("token_name", tokenName);
             for (MessageType mt: MessageType.values()) {
                 if (messages.containsKey(mt)) result.put("message_" + mt.name().toLowerCase(), messages.get(mt));
             }
@@ -344,15 +353,17 @@ final class RPGWorld {
                     }
                 }
                 break;
-            case MONSTER_BASE:
+            case LAIR:
                 for (Struct.Tag tag: struct.tags) {
                     if (tag.entityType != null) {
                         quests.add(Arrays.asList(new Quest(Quest.Type.KILL, tag),
-                                                 new Quest(Quest.Type.FIND_MONSTER_BASE, tag)));
+                                                 new Quest(Quest.Type.FIND_LAIR, tag)));
                     }
                 }
+                break;
             case MINE:
                 quests.add(Arrays.asList(new Quest(Quest.Type.MINE, Struct.Tag.DIAMOND)));
+                break;
             default: break;
             }
         }
@@ -377,6 +388,9 @@ final class RPGWorld {
                 npc.questId = town.quests.size();
                 List<Quest> qs = quests.remove(quests.size() - 1);
                 for (int i = 0; i < qs.size() - 1; i += 1) qs.get(i).unlocksNext = true;
+                for (int i = 0; i < qs.size(); i += 1) {
+                    qs.get(i).reputation += i * 5;
+                }
                 for (Quest quest: qs) {
                     enableQuest(quest, town, npc);
                     town.quests.add(quest);
@@ -424,7 +438,6 @@ final class RPGWorld {
             if (belonging == null || belonging.town == null) continue;
             if (belonging.lay == Belonging.Lay.CENTRAL) {
                 if (!belonging.town.visited) {
-                    player.sendMessage("Visit " + belonging.town.name);
                     belonging.town.visit();
                 }
             }
@@ -444,6 +457,13 @@ final class RPGWorld {
         return town.npcs.get(npcId);
     }
 
+    Quest findQuest(int townId, int questId) {
+        if (townId < 0 || townId >= towns.size()) return null;
+        Town town = towns.get(townId);
+        if (questId < 0 || questId >= town.quests.size()) return null;
+        return town.quests.get(questId);
+    }
+
     String onPlayerInteractNPC(Player player, NPCEntity.Watcher entity, int townId, int npcId) {
         if (townId >= towns.size()) return "Hello World";
         Town town = towns.get(townId);
@@ -458,10 +478,10 @@ final class RPGWorld {
             case ENABLED:
                 if (quest.isSignedUp(player)) {
                     int progress = quest.getProgress(player);
-                    if (progress == 0) {
-                        result = quest.messages.get(Quest.MessageType.DESCRIPTION);
-                    } else if (progress == quest.amount) {
+                    if (progress == quest.amount) {
                         result = quest.messages.get(Quest.MessageType.SUCCESS);
+                    } else if (progress < 2) {
+                        result = quest.messages.get(Quest.MessageType.DESCRIPTION);
                     } else {
                         result = quest.messages.get(Quest.MessageType.PROGRESS)
                             .replace("%done%", "" + progress)
@@ -479,12 +499,17 @@ final class RPGWorld {
             case COMPLETED:
                 int progress = quest.getProgress(player);
                 if (progress == quest.amount) {
-                    result = quest.messages.get(Quest.MessageType.SUCCESS);
-                    quest.state = Quest.State.RETURNED;
-                    dirty = true;
-                    plugin.getReputations().giveReputation(player, town.fraction, 10);
-                    player.spawnParticle(Particle.HEART, entity.getEntity().getEyeLocation().add(0, 0.5, 0), 1, 0, 0, 0, 0);
-                    player.playSound(entity.getEntity().getEyeLocation(), Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER, 0.5f, 1.75f);
+                    if (quest.tokenName != null) {
+                        result = quest.messages.get(Quest.MessageType.DESCRIPTION);
+                    } else {
+                        result = quest.messages.get(Quest.MessageType.SUCCESS);
+                        quest.state = Quest.State.RETURNED;
+                        plugin.getReputations().giveReputation(player, town.fraction, 10);
+                        player.spawnParticle(Particle.HEART, entity.getEntity().getEyeLocation().add(0, 0.5, 0), 1, 0, 0, 0, 0);
+                        player.playSound(entity.getEntity().getEyeLocation(), Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER, 0.5f, 1.75f);
+                        if (quest.unlocksNext) npc.questId += 1;
+                        dirty = true;
+                    }
                 } else {
                     result = quest.messages.get(Quest.MessageType.EXPIRED);
                 }
@@ -527,6 +552,7 @@ final class RPGWorld {
         Lay lay;
         Struct struct; // top level struct
         final List<Struct> structs = new ArrayList<>();
+        final Set<Struct.Type> types = EnumSet.noneOf(Struct.Type.class);
         final Set<Struct.Tag> tags = EnumSet.noneOf(Struct.Tag.class);
 
         enum Lay {
@@ -548,21 +574,23 @@ final class RPGWorld {
             result.town = town;
             if (town.area.contains(x, z)) {
                 result.lay = Belonging.Lay.CENTRAL;
-                for (Struct struct: town.structs) {
-                    if (struct.boundingBox.contains(x, y, z)) {
-                        result.struct = struct;
-                        result.tags.addAll(struct.tags);
-                        for (Struct sub: struct.deepSubs()) {
-                            if (sub.boundingBox.contains(x, y, z)) {
-                                result.structs.add(sub);
-                                result.tags.addAll(sub.tags);
-                            }
-                        }
-                        break;
-                    }
-                }
             } else {
                 result.lay = Belonging.Lay.OUTSKIRTS;
+            }
+            for (Struct struct: town.structs) {
+                if (struct.boundingBox.contains(x, y, z)) {
+                    result.struct = struct;
+                    result.tags.addAll(struct.tags);
+                    result.types.add(struct.type);
+                    for (Struct sub: struct.deepSubs()) {
+                        if (sub.boundingBox.contains(x, y, z)) {
+                            result.structs.add(sub);
+                            result.tags.addAll(sub.tags);
+                            result.types.add(sub.type);
+                        }
+                    }
+                    break;
+                }
             }
             return result;
         }
@@ -639,7 +667,7 @@ final class RPGWorld {
         return recipientVec;
     }
 
-    void giveProgress(Player player, Quest quest, int prog) {
+    int giveProgress(Player player, Quest quest, int prog) {
         Integer score = quest.progress.get(player.getUniqueId());
         if (score == null) score = 0;
         score += prog;
@@ -647,6 +675,7 @@ final class RPGWorld {
         quest.progress.put(player.getUniqueId(), score);
         if (score == quest.amount) quest.state = Quest.State.COMPLETED;
         dirty = true;
+        return score;
     }
 
     void enableQuest(Quest quest, Town town, NPC npc) {
@@ -654,24 +683,37 @@ final class RPGWorld {
         quest.messages.put(Quest.MessageType.UNWORTHY, plugin.getMessages().deal(Messages.Type.QUEST_UNWORTHY));
         switch (quest.type) {
         case MINE:
+            String ore = quest.what.name().toLowerCase();
+            quest.messages.put(Quest.MessageType.DESCRIPTION, plugin.getMessages().deal(Messages.Type.QUEST_MINE));
+            quest.messages.put(Quest.MessageType.PROGRESS, plugin.getMessages().deal(Messages.Type.QUEST_MINE_PROGRESS));
+            quest.messages.put(Quest.MessageType.SUCCESS, plugin.getMessages().deal(Messages.Type.QUEST_MINE_SUCCESS));
+            for (Quest.MessageType mt: Quest.MessageType.values()) {
+                quest.messages.put(mt, quest.messages.get(mt)
+                                   .replace("%ore%", ore));
+            }
+            quest.amount = 15 + plugin.getRandom().nextInt(16);
+            break;
+        case FIND_GEM:
             String gemstone;
             String fine = Msg.capitalize(plugin.getMessages().deal(Messages.Type.SYNONYM_FINE_ITEM));
-            String ore = quest.what.name().toLowerCase();
+            ore = quest.what.name().toLowerCase();
             String legendary = plugin.getMessages().deal(Messages.Type.SYNONYM_LEGENDARY_ITEM);
             switch (plugin.getRandom().nextInt(10)) {
             case 0: gemstone = fine + " " + Msg.capitalize(ore) + " of " + town.name; break;
             case 1: gemstone = fine + " " + town.name + " " + Msg.capitalize(ore); break;
             case 2: default: gemstone = town.name + " " + fine + " " + Msg.capitalize(ore);
             }
-            quest.messages.put(Quest.MessageType.DESCRIPTION, plugin.getMessages().deal(Messages.Type.QUEST_MINE));
+            quest.messages.put(Quest.MessageType.DESCRIPTION, plugin.getMessages().deal(Messages.Type.QUEST_FIND_GEM));
             quest.messages.put(Quest.MessageType.PROGRESS, quest.messages.get(Quest.MessageType.DESCRIPTION));
-            quest.messages.put(Quest.MessageType.SUCCESS, plugin.getMessages().deal(Messages.Type.QUEST_MINE_SUCCESS));
+            quest.messages.put(Quest.MessageType.SUCCESS, plugin.getMessages().deal(Messages.Type.QUEST_FIND_GEM_SUCCESS));
             for (Quest.MessageType mt: Quest.MessageType.values()) {
                 quest.messages.put(mt, quest.messages.get(mt)
                                    .replace("%legendary%", legendary)
                                    .replace("%gem%", gemstone)
                                    .replace("%ore%", ore));
             }
+            quest.amount = 20 + plugin.getRandom().nextInt(21);
+            quest.tokenName = gemstone;
             break;
         case KILL:
             String singular = quest.what.name().toLowerCase().replace("_", " ");
@@ -688,15 +730,34 @@ final class RPGWorld {
                                    .replace("%singular%", singular)
                                    .replace("%plural%", plural));
             }
+            quest.amount = 10 + plugin.getRandom().nextInt(11);
+            quest.minReputation += 10;
+            break;
+        case FIND_LAIR:
+            singular = quest.what.name().toLowerCase().replace("_", " ");
+            switch (quest.what) {
+            case ENDERMAN: plural = "Endermen"; break;
+            default: plural = singular + "s";
+            }
+            quest.messages.put(Quest.MessageType.DESCRIPTION, plugin.getMessages().deal(Messages.Type.QUEST_FIND_LAIR));
+            quest.messages.put(Quest.MessageType.PROGRESS, quest.messages.get(Quest.MessageType.DESCRIPTION));
+            quest.messages.put(Quest.MessageType.SUCCESS, plugin.getMessages().deal(Messages.Type.QUEST_FIND_LAIR_SUCCESS));
+            for (Quest.MessageType mt: Quest.MessageType.values()) {
+                quest.messages.put(mt, quest.messages.get(mt)
+                                   .replace("%singular%", singular)
+                                   .replace("%plural%", plural));
+            }
+            quest.amount = 2;
+            quest.minReputation += 10;
             break;
         case SHEAR:
             quest.messages.put(Quest.MessageType.DESCRIPTION, plugin.getMessages().deal(Messages.Type.QUEST_SHEAR));
             quest.messages.put(Quest.MessageType.PROGRESS, plugin.getMessages().deal(Messages.Type.QUEST_SHEAR_PROGRESS));
             quest.messages.put(Quest.MessageType.SUCCESS, plugin.getMessages().deal(Messages.Type.QUEST_SHEAR_SUCCESS));
             for (Quest.MessageType mt: Quest.MessageType.values()) {
-                quest.messages.put(mt, quest.messages.get(mt)
-                                   .replace("%amount%", "" + quest.amount));
+                quest.messages.put(mt, quest.messages.get(mt));
             }
+            quest.amount = 10 + plugin.getRandom().nextInt(6);
             break;
         case BREED:
             singular = quest.what.name().toLowerCase().replace("_", " ");
@@ -710,10 +771,45 @@ final class RPGWorld {
             for (Quest.MessageType mt: Quest.MessageType.values()) {
                 quest.messages.put(mt, quest.messages.get(mt)
                                    .replace("%singular%", singular)
-                                   .replace("%plural%", plural)
-                                   .replace("%amount%", "" + quest.amount));
+                                   .replace("%plural%", plural));
             }
+            quest.amount = 5 + plugin.getRandom().nextInt(6);
             break;
+        case TAME:
+            singular = quest.what.name().toLowerCase().replace("_", " ");
+            plural = singular + "s";
+            quest.messages.put(Quest.MessageType.DESCRIPTION, plugin.getMessages().deal(Messages.Type.QUEST_TAME));
+            quest.messages.put(Quest.MessageType.PROGRESS, plugin.getMessages().deal(Messages.Type.QUEST_TAME_PROGRESS));
+            quest.messages.put(Quest.MessageType.SUCCESS, plugin.getMessages().deal(Messages.Type.QUEST_TAME_SUCCESS));
+            for (Quest.MessageType mt: Quest.MessageType.values()) {
+                quest.messages.put(mt, quest.messages.get(mt)
+                                   .replace("%singular%", singular)
+                                   .replace("%plural%", plural));
+            }
+            quest.amount = 4 + plugin.getRandom().nextInt(3);
+            break;
+        case HARVEST:
+            singular = quest.what.name().toLowerCase().replace("_", " ");
+            switch (quest.what) {
+            case POTATO: plural = "potatoes"; break;
+            default: plural = singular + "s";
+            }
+            quest.messages.put(Quest.MessageType.DESCRIPTION, plugin.getMessages().deal(Messages.Type.QUEST_HARVEST));
+            quest.messages.put(Quest.MessageType.PROGRESS, plugin.getMessages().deal(Messages.Type.QUEST_HARVEST_PROGRESS));
+            quest.messages.put(Quest.MessageType.SUCCESS, plugin.getMessages().deal(Messages.Type.QUEST_HARVEST_SUCCESS));
+            for (Quest.MessageType mt: Quest.MessageType.values()) {
+                quest.messages.put(mt, quest.messages.get(mt)
+                                   .replace("%singular%", singular)
+                                   .replace("%plural%", plural));
+            }
+            quest.amount = 64 + plugin.getRandom().nextInt(65);
+            break;
+        }
+        for (Quest.MessageType mt: Quest.MessageType.values()) {
+            if (quest.messages.get(mt) == null) {
+                plugin.getLogger().warning("Quest " + quest.type + " has no message " + mt);
+                quest.messages.put(mt, "Hello");
+            }
         }
         for (Quest.MessageType mt: Quest.MessageType.values()) {
             quest.messages.put(mt, quest.messages.get(mt)

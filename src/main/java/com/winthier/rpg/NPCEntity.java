@@ -17,9 +17,6 @@ import lombok.RequiredArgsConstructor;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.Particle;
-import org.bukkit.Sound;
-import org.bukkit.SoundCategory;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
@@ -226,7 +223,23 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
             moving = false;
             String itemId = item != null ? CustomPlugin.getInstance().getItemManager().getCustomId(item) : null;
             String message = null;
-            if (itemId != null && item.getAmount() == 1 && DeliveryItem.CUSTOM_ID.equals(itemId)) {
+            if (itemId != null && item.getAmount() == 1 && QuestTokenItem.CUSTOM_ID.equals(itemId)) {
+                RPGWorld.Town town = rpgworld.findTown(townId);
+                RPGWorld.NPC npc = rpgworld.findNPC(townId, npcId);
+                RPGWorld.Quest quest = rpgworld.findQuest(townId, npc.questId);
+                if (town != null && npc != null && quest != null
+                    && quest.state == RPGWorld.Quest.State.COMPLETED
+                    && quest.tokenName != null
+                    && quest.tokenName.equals(QuestTokenItem.getToken(item))) {
+                    item.setAmount(0);
+                    quest.state = RPGWorld.Quest.State.RETURNED;
+                    message = quest.messages.get(RPGWorld.Quest.MessageType.SUCCESS);
+                    if (quest.unlocksNext) npc.questId += 1;
+                    plugin.getReputations().giveReputation(player, town.fraction, quest.reputation);
+                    plugin.playQuestCompleteEffect(player, entity.getEyeLocation().add(0, 0.5, 0));
+                    rpgworld.dirty = true;
+                }
+            } else if (itemId != null && item.getAmount() == 1 && DeliveryItem.CUSTOM_ID.equals(itemId)) {
                 Dirty.TagWrapper config = Dirty.TagWrapper.getItemConfigOf(item);
                 Vec2 recipient = DeliveryItem.getRecipient(item);
                 String owner = config.getString(DeliveryItem.KEY_OWNER);
@@ -248,8 +261,7 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
                     message = message.replace("%npc%", npc.name);
                     message = message.replace("%next%", nextNPC.name);
                     plugin.getReputations().giveReputation(player, town.fraction, 10);
-                    player.spawnParticle(Particle.HEART, entity.getEyeLocation().add(0, 0.5, 0), 1, 0, 0, 0, 0);
-                    player.playSound(entity.getEyeLocation(), Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER, 0.5f, 1.75f);
+                    plugin.playQuestCompleteEffect(player, entity.getEyeLocation().add(0, 0.5, 0));
                 }
             }
             if (message == null) {

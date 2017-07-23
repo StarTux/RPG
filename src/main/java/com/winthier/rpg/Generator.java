@@ -272,8 +272,9 @@ final class Generator {
             Tile.of(Material.GRASS_PATH).setBlockNoPhysics(block);
         }
         int fountains = 1;
-        int farms = 1 + randomInt(3);
-        int pastures = 1 + randomInt(2);
+        int farms = 1 + randomInt(2);
+        int pastures = randomInt(2);
+        int mines = randomInt(2);
         for (Vec2 chunk: town.chunks) {
             Chunk bchunk = world.getChunkAt(chunk.x, chunk.y);
             for (Entity e: bchunk.getEntities()) {
@@ -299,6 +300,13 @@ final class Generator {
                 int offx = 1 + randomInt(14 - width);
                 int offy = 1 + randomInt(14 - height);
                 town.structs.add(plantPasture(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), width, height));
+            } else if (mines > 0) {
+                mines -= 1;
+                int width = 6 + randomInt(7);
+                int height = 6 + randomInt(7);
+                int offx = 1 + randomInt(14 - width);
+                int offy = 1 + randomInt(14 - height);
+                town.structs.add(plantMine(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), width, height));
             } else {
                 int width = 10 + randomInt(5) - randomInt(3);
                 int height = 10 + randomInt(5) - randomInt(3);
@@ -309,12 +317,12 @@ final class Generator {
                 town.structs.add(plantHouse(world.getBlockAt(chunk.x * 16 + offx, 0, chunk.y * 16 + offy), house));
             }
         }
-        int monsterCamps = 1;
+        int lairs = 1;
         Collections.shuffle(town.wilderChunks, random);
         Vec2 centerChunk = new Vec2((town.ax + town.bx) / 2, (town.ay + town.by) / 2);
         Collections.sort(town.wilderChunks, (a, b) -> Integer.compare(b.maxDistance(centerChunk), a.maxDistance(centerChunk)));
         for (Vec2 chunk: town.wilderChunks) {
-            int totalWild = monsterCamps;
+            int totalWild = lairs;
             if (totalWild <= 0) break;
             Chunk bchunk = world.getChunkAt(chunk.x, chunk.y);
             List<Integer> heights = new ArrayList<>(16 * 16);
@@ -344,11 +352,11 @@ final class Generator {
                 }
             }
             if (!fits) continue;
-            if (monsterCamps > 0) {
-                monsterCamps -= 1;
+            if (lairs > 0) {
+                lairs -= 1;
                 EnumSet<Flag> oldFlags = EnumSet.copyOf(flags);
                 House house = generateHouse(16, 16);
-                town.structs.add(plantMonsterBase(world.getBlockAt(chunk.x * 16, 0, chunk.y * 16), house, town));
+                town.structs.add(plantLair(world.getBlockAt(chunk.x * 16, 0, chunk.y * 16), house, town));
             }
         }
     }
@@ -1322,7 +1330,7 @@ final class Generator {
         return new Struct(Struct.Type.PASTURE, bb, null, EnumSet.of(entityTag));
     }
 
-    Struct plantMonsterBase(Block start, House house, Town town) {
+    Struct plantLair(Block start, House house, Town town) {
         List<Integer> heights = new ArrayList<>(house.tiles.size());
         for (Vec2 vec: house.tiles.keySet()) {
             heights.add(findHighestBlock(start.getRelative(vec.x, 0, vec.y)).getY());
@@ -1408,9 +1416,75 @@ final class Generator {
                 state.update();
             }
         }
-        return new Struct(Struct.Type.MONSTER_BASE, house.boundingBox,
-                          house.rooms.stream().map(r -> new Struct(Struct.Type.MONSTER_ROOM, r.boundingBox, null, null)).collect(Collectors.toList()),
+        return new Struct(Struct.Type.LAIR, house.boundingBox,
+                          house.rooms.stream().map(r -> new Struct(Struct.Type.LAIR_ROOM, r.boundingBox, null, null)).collect(Collectors.toList()),
                           tags);
+    }
+
+    Struct plantMine(Block start, int width, int height) {
+        List<Integer> highest = new ArrayList<>();
+        Map<Vec2, Integer> tiles = new HashMap<>();
+        for (int y = 0; y < height; y += 1) {
+            for (int x = 0; x < width; x += 1) {
+                highest.add(findHighestBlock(start.getRelative(x, 0, y)).getY());
+            }
+        }
+        Collections.sort(highest);
+        int floorLevel = highest.get(highest.size() / 2);
+        Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
+        Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), random.nextInt(16));
+        for (int z = 0; z < height; z += 1) {
+            for (int x = 0; x < width; x += 1) {
+                boolean outerX, outerZ, isWall, isCorner;
+                outerX = x == 0 || x == width - 1;
+                outerZ = z == 0 || z == height - 1;
+                isCorner = outerX && outerZ;
+                isWall = !isCorner && (outerX || outerZ);
+                Orientation ori = outerX ? Orientation.VERTICAL : Orientation.HORIZONTAL;
+                Block floor = offset.getRelative(x, 0, z);
+                for (int y = 0; y < floorLevel - 10; y += 1) {
+                    Block block = floor.getRelative(0, -y, 0);
+                    if (isCorner) {
+                        if (y == 0) {
+                            style.cornerBase.orient(ori).setBlock(block);
+                        } else if (y < 4) {
+                            style.corner.setBlock(block);
+                        }
+                    } else if (isWall) {
+                        if (y == 0) {
+                            style.wallBase.orient(ori).setBlock(block);
+                        } else if (y < 4) {
+                            style.wall.setBlock(block);
+                        }
+                    } else {
+                        block.setType(Material.AIR);
+                    }
+                }
+                int roomHeight = 5;
+                for (int y = 1; y <= roomHeight; y += 1) {
+                    Block block = floor.getRelative(0, y, 0);
+                    if (isCorner) {
+                        if (y < roomHeight) {
+                            style.pillar.setBlock(block);
+                        } else {
+                            style.slab.setBlock(block);
+                        }
+                    } else if (isWall) {
+                        if (y < roomHeight) {
+                            Tile.AIR.setBlock(block);
+                        } else {
+                            style.slab.setBlock(block);
+                        }
+                    } else {
+                        Tile.AIR.setBlock(block);
+                    }
+                }
+            }
+        }
+        return new Struct(Struct.Type.MINE,
+                          new Cuboid(offset.getX(), offset.getY() - 8, offset.getZ(),
+                                     offset.getX() + width - 1, offset.getY() + 4, offset.getZ() + height - 1),
+                          null, null);
     }
 
     House generateHouse(int width, int height) {

@@ -88,7 +88,7 @@ synonym_lives_in: [lives in, moved to, resides in, leads a humble life in, sough
 synonym_a_place_called: [a town named, a place called, a village by the name of, some place they call, a faraway place called, a strange place they call]
 synonym_sincerely: [Sincerely, Thanks in advance, Cheers, Faithfully, Regards, Respectfully, Best, Looking Forward, Thanks, Hugs, Best wishes, See you around, Yours truly, Love, Kisses, Hugs and kisses]
 synonym_legendary_item: [legendary, mysterious, myth-enshrouded, famous, famed, fabled]
-synonym_fine_item: [noble, precious, pure, classic, heavy, fine, kingly]
+synonym_fine_item: [noble, precious, pure, classic, heavy, fine, kingly, brilliant]
 delivery_thanks:
 - A letter from %sender%? Why thank you. Would you mind delivering something else for me?
 - Gasp! I was anxious for a word from %sender%. Could you please forward it to our mutual friend?
@@ -100,11 +100,22 @@ delivery_thanks:
 - A note? From %sender%? To me?! Please bring this to %next%.
 - Thank you for relaying this message from %sender% to me. Could you do the same for me and %next%?
 quest_mine:
-- The %legendary% %gem% is said to slumber in the %ore% veins under %town%.
-- One day I will find the %gem% in our %legendary% %ore% veins.
-- Many %ore% miners have come here to try and find the %legendary% %gem%.
-- If only I mined the %legendary% %gem% from one of our %ore% veins, I could start my own business.
+- I am afraid the mine will shut down unless we strike %ore% down there.
+- '%town% was settled to mine %ore%, but sadly so far, our mining operations have been unsuccessful.'
+- If only somebody could strike %ore% in our mines to prove it exists under %town%.
+quest_mine_progress:
+- You found %done% ore. Could you do %todo% more so we can be positive it was not an isolated case?
+- '%done% %ore% is pretty good, but we need %amount% to be absolutely sure there is more.'
 quest_mine_success:
+- You struck plenty of %ore%, proving that we should continue our mining operations!
+- Thanks to you, we can know for certain that there is indeed %ore% under %town%.
+- Finally, our miners can be confident that mining %ore% will pay off in the end.
+quest_find_gem:
+- The %legendary% %gem% is said to slumber in the %ore% mines under %town%.
+- One day I will find the %gem% in our %legendary% %ore% mines.
+- Many %ore% miners have settled here to try and find the %legendary% %gem%.
+- If only I found the %legendary% %gem% from one of our %ore% mines, I could start my own business.
+quest_find_gem_success:
 - You found the %gem%. Thank you so much!
 - You would just give the %gem% to me? I will not forget this.
 - We will always be grateful to you for bringing us the %gem%.
@@ -115,11 +126,18 @@ quest_kill:
 - We struggle to defend against the invading %singular% army.
 - A hoard of %plural% was roamind through town last night.
 - There has been an unusual amount of %plural% around %town%.
+- The %plural% coming out at night are tough to deal with.
 quest_kill_success:
 - Thanks to you, the %singular% threat has been averted.
 - You saved %town% from the %plural%.
 - You sure took good care of those pesky %plural%.
 - The %plural% are diminished, thanks to you.
+quest_find_lair:
+- Let us get rid of the %singular% scourge once and for all! Follow their trail to find their lair.
+- Perhaps you are the hero we need to take out the %singular% lair. Find out where they come from and destroy the spawner inside.
+quest_find_lair_success:
+- You did it! The %singular% lair is no more.
+- Finally we can rest well at night, knowing the %singular% plague is gone.
 quest_shear:
 - I need to shear the sheep at our farm, but cannot leave the house.
 - Too bad I have a cold. Our sheep farm does not shear itself.
@@ -132,11 +150,30 @@ quest_shear_progress:
 quest_shear_success:
 - Thank you for shearing our sheep!
 quest_breed:
-- Our %singular% farm neds more %plural%. Would you be able to breed them?
+- We need to breed more %plural% on our farm.
+- There are not a lot of %plural% left in our pasture.
 quest_breed_progress:
-- You bred %done% %plural%. Only %todo% more to go.
+- Amazing, you bred %done% %plural%. Only %todo% more to go.
 quest_breed_success:
 - Thanks to you breeding our %plural%, the farm is saved!
+quest_harvest:
+- It is %singular% season! If only our farm was to grow grow some %plural%, we could harvest much faster.
+- I wish somebody would grow and harvest our %singular% farm.
+- The %singular% farms of %town% need a competent farmer to grow and full harvest.
+quest_harvest_progress:
+- You harvested %done% out of %amount% %plural%. Keep it up!
+- Could you harvest %todo% more of those? The local farmers will thank you.
+quest_harvest_success:
+- Thank you for helping the farmers of %town%.
+- Thanks for growing our %plural% for us.
+- The people of %town% will hopefully learn from your %singular% farming skills.
+quest_tame:
+- The %singular% farm of %town% is out of control. Somebody must tame the %plural% in there!
+- If only somebody could manage to tame the %plural% in our farm.
+quest_tame_progress:
+- Impressive, you managed to tame %done% %plural%. Can you do %todo% more?
+quest_tame_success:
+- Your %singular% taming skills are unmatched in %town%.
 quest_expired:
 - Somebody already helped me out.
 - I am afraid you are too late.

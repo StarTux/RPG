@@ -181,85 +181,33 @@ final class RPGWorld {
 
     static final class Quest {
         final Type type;
-        final Enum<?> what;
+        final Struct.Tag what;
         // State
         int amount = 16;
         int minReputation = 0;
         final Map<UUID, Integer> progress = new HashMap<>();
         final Map<MessageType, String> messages = new EnumMap<>(MessageType.class);
         State state = State.INIT;
+        boolean unlocksNext;
 
         enum Type {
-            MINE(MineWhat.class),
-            KILL(KillWhat.class),
-            SHEAR(ShearWhat.class),
-            BREED(BreedWhat.class);
-            final Class<? extends Enum> whatType;
-            Type(Class<? extends Enum> whatType) {
-                this.whatType = whatType;
-            }
+            MINE, KILL, SHEAR, BREED, TAME, HARVEST, FIND_MONSTER_BASE;
         }
         enum State {
             INIT, ENABLED, COMPLETED, RETURNED;
-        }
-        enum KillWhat {
-            CREEPER(EnumSet.of(EntityType.CREEPER)),
-            ZOMBIE(EnumSet.of(EntityType.ZOMBIE, EntityType.HUSK, EntityType.ZOMBIE_VILLAGER)),
-            SPIDER(EnumSet.of(EntityType.SPIDER, EntityType.CAVE_SPIDER)),
-            ENDERMAN(EnumSet.of(EntityType.ENDERMAN));
-            final Set<EntityType> killEntities;
-            KillWhat(Set<EntityType> killEntities) {
-                this.killEntities = killEntities;
-            }
-        }
-        enum BreedWhat {
-            COW(EnumSet.of(EntityType.COW), Struct.Tag.COW),
-            PIG(EnumSet.of(EntityType.PIG), Struct.Tag.PIG),
-            SHEEP(EnumSet.of(EntityType.SHEEP), Struct.Tag.SHEEP),
-            CHICKEN(EnumSet.of(EntityType.CHICKEN), Struct.Tag.CHICKEN),
-            HORSE(EnumSet.of(EntityType.HORSE), Struct.Tag.HORSE),
-            DONKEY(EnumSet.of(EntityType.DONKEY), Struct.Tag.DONKEY),
-            MULE(EnumSet.of(EntityType.MULE), Struct.Tag.MULE),
-            MUSHROOM_COW(EnumSet.of(EntityType.MUSHROOM_COW), Struct.Tag.MUSHROOM_COW);
-            final Set<EntityType> breedEntities;
-            Struct.Tag breedTag;
-            BreedWhat(Set<EntityType> breedEntities, Struct.Tag breedTag) {
-                this.breedEntities = breedEntities;
-                this.breedTag = breedTag;
-            }
-            BreedWhat(EntityType breedEntity) {
-                this.breedEntities = EnumSet.of(breedEntity);
-            }
-        }
-        enum ShearWhat {
-            SHEEP(EnumSet.of(EntityType.SHEEP));
-            final Set<EntityType> shearEntities;
-            ShearWhat(Set<EntityType> shearEntities) {
-                this.shearEntities = shearEntities;
-            }
-        }
-        enum MineWhat {
-            DIAMOND(EnumSet.of(Material.DIAMOND_ORE)),
-            IRON(EnumSet.of(Material.IRON_ORE)),
-            GOLD(EnumSet.of(Material.GOLD_ORE)),
-            COAL(EnumSet.of(Material.COAL_ORE));
-            final Set<Material> mineMaterials;
-            MineWhat(Set<Material> mineMaterials) {
-                this.mineMaterials = mineMaterials;
-            }
         }
         enum MessageType {
             DESCRIPTION, PROGRESS, SUCCESS, UNWORTHY, EXPIRED;
         }
 
-        Quest(Type type, Enum<?> what) {
+        Quest(Type type, Struct.Tag what) {
             this.type = type;
             this.what = what;
         }
 
         Quest(ConfigurationSection config) {
             type = Type.valueOf(config.getString("type"));
-            what = type.valueOf(type.whatType, config.getString("what"));
+            what = Struct.Tag.valueOf(config.getString("what"));
             state = State.valueOf(config.getString("state"));
             this.amount = config.getInt("amount");
             ConfigurationSection section = config.getConfigurationSection("progress");
@@ -269,6 +217,7 @@ final class RPGWorld {
                 }
             }
             minReputation = config.getInt("min_reputation", 0);
+            unlocksNext = config.getBoolean("unlocks_next");
             for (MessageType mt: MessageType.values()) {
                 messages.put(mt, config.getString("message_" + mt.name().toLowerCase()));
             }
@@ -282,6 +231,7 @@ final class RPGWorld {
             result.put("amount", amount);
             result.put("progress", progress.entrySet().stream().collect(Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue())));
             result.put("min_reputation", minReputation);
+            if (unlocksNext) result.put("unlocks_next", unlocksNext);
             for (MessageType mt: MessageType.values()) {
                 if (messages.containsKey(mt)) result.put("message_" + mt.name().toLowerCase(), messages.get(mt));
             }
@@ -362,54 +312,51 @@ final class RPGWorld {
         // Fetch generation info
         town.structs.addAll(gt.structs);
         // Quests
-        List<Quest> possibleQuests = new ArrayList<>();
+        List<List<Quest>> quests = new ArrayList<>();
         for (Struct struct: town.structs) {
             switch (struct.type) {
             case FARM:
+                for (Struct.Tag tag: struct.tags) {
+                    if (tag.tile != null) {
+                        quests.add(Arrays.asList(new Quest(Quest.Type.HARVEST, tag)));
+                    }
+                }
                 break;
             case PASTURE:
                 for (Struct.Tag tag: struct.tags) {
                     switch (tag) {
-                    case COW:
-                        possibleQuests.add(new Quest(Quest.Type.BREED, Quest.BreedWhat.COW));
-                        break;
-                    case PIG:
-                        possibleQuests.add(new Quest(Quest.Type.BREED, Quest.BreedWhat.PIG));
-                        break;
                     case SHEEP:
-                        possibleQuests.add(new Quest(Quest.Type.BREED, Quest.BreedWhat.SHEEP));
-                        possibleQuests.add(new Quest(Quest.Type.SHEAR, Quest.ShearWhat.SHEEP));
-                        break;
-                    case CHICKEN:
-                        possibleQuests.add(new Quest(Quest.Type.BREED, Quest.BreedWhat.CHICKEN));
+                        quests.add(Arrays.asList(new Quest(Quest.Type.BREED, tag),
+                                                 new Quest(Quest.Type.SHEAR, tag)));
                         break;
                     case HORSE:
-                        possibleQuests.add(new Quest(Quest.Type.BREED, Quest.BreedWhat.HORSE));
-                        break;
                     case DONKEY:
-                        possibleQuests.add(new Quest(Quest.Type.BREED, Quest.BreedWhat.MULE));
+                        quests.add(Arrays.asList(new Quest(Quest.Type.TAME, tag),
+                                                 new Quest(Quest.Type.BREED, tag)));
                         break;
+                    case COW:
+                    case PIG:
+                    case CHICKEN:
                     case MUSHROOM_COW:
-                        possibleQuests.add(new Quest(Quest.Type.BREED, Quest.BreedWhat.MUSHROOM_COW));
+                        quests.add(Arrays.asList(new Quest(Quest.Type.BREED, tag)));
                         break;
+                    default: break;
                     }
                 }
                 break;
+            case MONSTER_BASE:
+                for (Struct.Tag tag: struct.tags) {
+                    if (tag.entityType != null) {
+                        quests.add(Arrays.asList(new Quest(Quest.Type.KILL, tag),
+                                                 new Quest(Quest.Type.FIND_MONSTER_BASE, tag)));
+                    }
+                }
+            case MINE:
+                quests.add(Arrays.asList(new Quest(Quest.Type.MINE, Struct.Tag.DIAMOND)));
             default: break;
             }
         }
-        for (Quest.KillWhat what: Quest.KillWhat.values()) {
-            EnumSet<EntityType> intersection = EnumSet.noneOf(EntityType.class);
-            intersection.addAll(what.killEntities);
-            intersection.retainAll(town.fraction.villagerTypes);
-            if (intersection.isEmpty()) {
-                possibleQuests.add(new Quest(Quest.Type.KILL, what));
-            }
-        }
-        for (Quest.MineWhat what: Quest.MineWhat.values()) {
-            possibleQuests.add(new Quest(Quest.Type.MINE, what));
-        }
-        Collections.shuffle(possibleQuests, generator.random);
+        Collections.shuffle(quests, generator.random);
         // NPCs
         List<Vec3> vecNPCs = new ArrayList<>();
         for (Generator.House house: gt.houses) {
@@ -419,7 +366,7 @@ final class RPGWorld {
         }
         Collections.shuffle(vecNPCs, generator.random);
         int npcGreetings = 1;
-        int npcQuests = Math.min(possibleQuests.size(), vecNPCs.size()/* / 2*/); // TODO
+        int npcQuests = Math.min(quests.size(), vecNPCs.size() / 3);
         for (Vec3 vec: vecNPCs) {
             int npcId = town.npcs.size();
             NPC npc = new NPC(vec);
@@ -428,9 +375,12 @@ final class RPGWorld {
             if (npcQuests > 0) {
                 npcQuests -= 1;
                 npc.questId = town.quests.size();
-                Quest quest = possibleQuests.remove(possibleQuests.size() - 1);
-                enableQuest(quest, town, npc);
-                town.quests.add(quest);
+                List<Quest> qs = quests.remove(quests.size() - 1);
+                for (int i = 0; i < qs.size() - 1; i += 1) qs.get(i).unlocksNext = true;
+                for (Quest quest: qs) {
+                    enableQuest(quest, town, npc);
+                    town.quests.add(quest);
+                }
                 message = plugin.getMessages().deal(Messages.Type.RANDOM);
             } else if (npcGreetings > 0) {
                 npcGreetings -= 1;
@@ -724,15 +674,17 @@ final class RPGWorld {
             }
             break;
         case KILL:
-            String pet = plugin.getMessages().deal(Messages.Type.QUEST_KILL_STOLEN_BABY_PETS);
-            String singular = Msg.capitalize(((Quest.KillWhat)quest.what).name());
-            String plural = quest.what == Quest.KillWhat.ENDERMAN ? "Endermen" : singular + "s";
+            String singular = quest.what.name().toLowerCase().replace("_", " ");
+            String plural;
+            switch (quest.what) {
+            case ENDERMAN: plural = "Endermen"; break;
+            default: plural = singular + "s";
+            }
             quest.messages.put(Quest.MessageType.DESCRIPTION, plugin.getMessages().deal(Messages.Type.QUEST_KILL));
             quest.messages.put(Quest.MessageType.PROGRESS, quest.messages.get(Quest.MessageType.DESCRIPTION));
             quest.messages.put(Quest.MessageType.SUCCESS, plugin.getMessages().deal(Messages.Type.QUEST_KILL_SUCCESS));
             for (Quest.MessageType mt: Quest.MessageType.values()) {
                 quest.messages.put(mt, quest.messages.get(mt)
-                                   .replace("%pet%", pet)
                                    .replace("%singular%", singular)
                                    .replace("%plural%", plural));
             }
@@ -747,8 +699,8 @@ final class RPGWorld {
             }
             break;
         case BREED:
-            singular = ((Quest.BreedWhat)quest.what).name().toLowerCase().replace("_", " ");
-            switch ((Quest.BreedWhat)quest.what) {
+            singular = quest.what.name().toLowerCase().replace("_", " ");
+            switch (quest.what) {
             case SHEEP: plural = "sheep"; break;
             default: plural = singular + "s";
             }

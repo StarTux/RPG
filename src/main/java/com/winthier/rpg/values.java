@@ -169,23 +169,40 @@ enum Facing {
 
 final class Struct {
     enum Type {
-        HOUSE, ROOM, FOUNTAIN, FARM, CROPS, PASTURE, MONSTER_BASE, MONSTER_ROOM, UNKNOWN;
+        HOUSE, ROOM, FOUNTAIN, FARM, CROPS, PASTURE, MINE, MONSTER_BASE, MONSTER_ROOM, UNKNOWN;
     }
     enum Tag {
-        NETHER_WART, WHEAT, POTATO, CARROT, BEETROOT,
+        NETHER_WART(Tile.of(Material.NETHER_WARTS, 3)),
+        WHEAT(Tile.of(Material.CROPS, 7)),
+        POTATO(Tile.of(Material.POTATO, 7)),
+        CARROT(Tile.of(Material.CARROT, 7)),
+        BEETROOT(Tile.of(Material.BEETROOT_BLOCK, 3)),
+        DIAMOND(Tile.of(Material.DIAMOND_ORE)),
         COW, PIG, CHICKEN, SHEEP, MUSHROOM_COW, HORSE, ZOMBIE_HORSE, SKELETON_HORSE, DONKEY, MULE,
         ZOMBIE, HUSK, SKELETON, STRAY, CREEPER, SPIDER, CAVE_SPIDER, ENDERMAN;
         final EntityType entityType;
+        final Tile tile;
         Tag() {
             EntityType et = null;
             try {
                 et = EntityType.valueOf(name());
             } catch (IllegalArgumentException iae) {}
             this.entityType = et;
+            this.tile = null;
         }
-        static Tag of (EntityType et) {
+        Tag(Tile tile) {
+            this.entityType = null;
+            this.tile = tile;
+        }
+        static Tag of(EntityType et) {
             for (Tag tag: Tag.values()) {
                 if (tag.entityType == et) return tag;
+            }
+            return null;
+        }
+        static Tag of(Material mat) {
+            for (Tag tag: Tag.values()) {
+                if (tag.tile.mat == mat) return tag;
             }
             return null;
         }

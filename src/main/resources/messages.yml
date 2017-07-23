@@ -50,7 +50,7 @@ random:
 - I can hear wolves howling at night.
 - I hear more dangerous creatures come out during a full moon.
 - I hear you can befriend a creeper.
-- I hear you can keep squids as pets.
+- I hear you can keep ducks as pets.
 greeting:
 - Welcome to %town%.
 - Salem alaikum in %town%.
@@ -110,17 +110,16 @@ quest_mine_success:
 - We will always be grateful to you for bringing us the %gem%.
 - I will always be grateful to you for bringing me the %gem%.
 - The %gem% will be a big help to us. Thank you very much.
-quest_kill_stolen_baby_pets: [ rabbit, kitten, puppy, chick ]
 quest_kill:
-- The %singular% population around %town% has gotten out of hand. One even stole my %pet%.
-- My %pet% ran away because of the invading %singular% army. Please find it.
-- A hoard of %plural% was seen near my house the day before my %pet% disappeared... I miss her so much.
-- There has been an unusual amount of %plural% around %town%. One of them took my %pet%.
+- The %singular% population around %town% has gotten out of hand.
+- We struggle to defend against the invading %singular% army.
+- A hoard of %plural% was roamind through town last night.
+- There has been an unusual amount of %plural% around %town%.
 quest_kill_success:
-- Thanks to you, my %pet% came back!
-- You saved my %pet%! Thank you so much.
-- Great news! My %pet% has returned since you cut down the %singular% population.
-- You sure showed those %plural%. They even gave my %pet% back.
+- Thanks to you, the %singular% threat has been averted.
+- You saved %town% from the %plural%.
+- You sure took good care of those pesky %plural%.
+- The %plural% are diminished, thanks to you.
 quest_shear:
 - I need to shear the sheep at our farm, but cannot leave the house.
 - Too bad I have a cold. Our sheep farm does not shear itself.

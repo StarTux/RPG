@@ -300,7 +300,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
             for (RPGWorld.Quest quest: belonging.town.quests) {
                 if (quest.type == RPGWorld.Quest.Type.MINE
                     && quest.isSignedUp(player)
-                    && ((RPGWorld.Quest.MineWhat)quest.what).mineMaterials.contains(block.getType())) {
+                    && quest.what.tile.mat == block.getType()) {
                     rpgWorld.giveProgress(player, quest, 1);
                     player.sendMessage("Progress " + quest.type + " " + quest.what + " " + quest.getProgress(player));
                 }
@@ -322,7 +322,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         for (RPGWorld.Quest quest: belonging.town.quests) {
             if (quest.type == RPGWorld.Quest.Type.KILL
                 && quest.isSignedUp(player)
-                && ((RPGWorld.Quest.KillWhat)quest.what).killEntities.contains(entity.getType())) {
+                && quest.what.entityType == entity.getType()) {
                 rpgWorld.giveProgress(player, quest, 1);
                 player.sendMessage("Progress " + quest.type + " " + quest.what + " " + quest.getProgress(player));
             }
@@ -343,7 +343,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
                 && quest.isSignedUp(player)
                 && belonging.struct.type == Struct.Type.PASTURE
                 && belonging.tags.contains(Struct.Tag.SHEEP)
-                && ((RPGWorld.Quest.ShearWhat)quest.what).shearEntities.contains(entity.getType())) {
+                && quest.what.entityType == entity.getType()) {
                 rpgWorld.giveProgress(player, quest, 1);
                 player.sendMessage("Progress " + quest.type + " " + quest.what + " " + quest.getProgress(player));
             }
@@ -364,11 +364,10 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         for (RPGWorld.Quest quest: belonging.town.quests) {
             System.out.println(quest.type);
             if (quest.type == RPGWorld.Quest.Type.BREED) {
-                RPGWorld.Quest.BreedWhat what = (RPGWorld.Quest.BreedWhat)quest.what;
                 if (quest.isSignedUp(player)
                     && belonging.struct.type == Struct.Type.PASTURE
-                    && belonging.tags.contains(what.breedTag)
-                    && what.breedEntities.contains(entity.getType())) {
+                    && belonging.tags.contains(quest.what)
+                    && quest.what.entityType == entity.getType()) {
                     rpgWorld.giveProgress(player, quest, 1);
                     player.sendMessage("Progress " + quest.type + " " + quest.what + " " + quest.getProgress(player));
                 }

@@ -5,6 +5,7 @@ import com.winthier.custom.event.CustomRegisterEvent;
 import com.winthier.custom.event.CustomTickEvent;
 import com.winthier.custom.util.Items;
 import com.winthier.exploits.bukkit.BukkitExploits;
+import com.winthier.generic_events.PlayerCanGriefEvent;
 import com.winthier.rpg.Generator.House;
 import com.winthier.rpg.Generator.Town;
 import java.util.ArrayList;
@@ -85,7 +86,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         event.addItem(new DeliveryItem(this));
         event.addBlock(new CanonTravelBlock(this));
         event.addItem(new QuestTokenItem(this));
-        worldName = getConfig().getString("worlds", "Resource");
+        worldName = getConfig().getString("world", "Resource");
         createTowns = getConfig().getBoolean("create_towns");
         if (world != null && world.isDirty()) world.save();
         world = null;
@@ -325,38 +326,39 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
             player.spawnParticle(Particle.VILLAGER_ANGRY, loc, 3, .2, .2, .2, 0.0);
             player.playSound(loc, Sound.ENTITY_VILLAGER_HURT, SoundCategory.MASTER, 0.1f, 0.1f);
         }
-        if (!BukkitExploits.getInstance().isPlayerPlaced(block)) {
-            for (RPGWorld.Quest quest: belonging.town.quests) {
-                if (quest.type == RPGWorld.Quest.Type.MINE
-                    && quest.isSignedUp(player)
-                    && quest.what.tile.mat == block.getType()) {
-                    rpgWorld.giveProgress(player, quest, 1);
-                    playQuestProgressEffect(player, block.getLocation().add(0.5, 0.5, 0.5));
-                } else if (quest.type == RPGWorld.Quest.Type.FIND_GEM
-                           && quest.isSignedUp(player)
-                           && quest.what.tile.mat == block.getType()) {
-                    int progress = rpgWorld.giveProgress(player, quest, 1);
-                    if (progress == quest.amount) {
-                        ItemStack item = CustomPlugin.getInstance().getItemManager().wrapItemStack(new ItemStack(Material.DIAMOND), QuestTokenItem.CUSTOM_ID);
-                        QuestTokenItem.save(item, rpgWorld, quest.tokenName);
-                        Items.give(item, player);
-                    }
-                    playQuestProgressEffect(player, block.getLocation().add(0.5, 0.5, 0.5));
-                } else if (quest.type == RPGWorld.Quest.Type.HARVEST
-                           && quest.isSignedUp(player)
-                           && quest.what.tile.isSet(block)
-                           && belonging.types.contains(Struct.Type.CROPS)
-                           && belonging.tags.contains(quest.what)) {
-                    rpgWorld.giveProgress(player, quest, 1);
-                    playQuestProgressEffect(player, block.getLocation().add(0.5, 1.0, 0.5));
-                } else if (quest.type == RPGWorld.Quest.Type.FIND_LAIR
-                           && quest.isSignedUp(player)
-                           && block.getType() == Material.MOB_SPAWNER
-                           && belonging.types.contains(Struct.Type.LAIR)
-                           && belonging.tags.contains(quest.what)) {
-                    rpgWorld.giveProgress(player, quest, 1);
-                    playQuestProgressEffect(player, block.getLocation().add(0.5, 0.5, 0.5));
+        for (RPGWorld.Quest quest: belonging.town.quests) {
+            if (quest.type == RPGWorld.Quest.Type.MINE
+                && quest.isSignedUp(player)
+                && quest.what.tile.mat == block.getType()
+                && !BukkitExploits.getInstance().isPlayerPlaced(block)) {
+                rpgWorld.giveProgress(player, quest, 1);
+                playQuestProgressEffect(player, block.getLocation().add(0.5, 0.5, 0.5));
+            } else if (quest.type == RPGWorld.Quest.Type.FIND_GEM
+                       && quest.isSignedUp(player)
+                       && quest.what.tile.mat == block.getType()
+                       && !BukkitExploits.getInstance().isPlayerPlaced(block)) {
+                int progress = rpgWorld.giveProgress(player, quest, 1);
+                if (progress == quest.amount) {
+                    ItemStack item = CustomPlugin.getInstance().getItemManager().wrapItemStack(new ItemStack(Material.DIAMOND), QuestTokenItem.CUSTOM_ID);
+                    QuestTokenItem.save(item, rpgWorld, quest.tokenName);
+                    Items.give(item, player);
                 }
+                playQuestProgressEffect(player, block.getLocation().add(0.5, 0.5, 0.5));
+            } else if (quest.type == RPGWorld.Quest.Type.HARVEST
+                       && quest.isSignedUp(player)
+                       && quest.what.tile.isSet(block)
+                       && belonging.types.contains(Struct.Type.CROPS)
+                       && belonging.tags.contains(quest.what)) {
+                rpgWorld.giveProgress(player, quest, 1);
+                playQuestProgressEffect(player, block.getLocation().add(0.5, 1.0, 0.5));
+            } else if (quest.type == RPGWorld.Quest.Type.FIND_LAIR
+                       && quest.isSignedUp(player)
+                       && block.getType() == Material.MOB_SPAWNER
+                       && belonging.types.contains(Struct.Type.LAIR)
+                       && belonging.tags.contains(quest.what)
+                       && !BukkitExploits.getInstance().isPlayerPlaced(block)) {
+                rpgWorld.giveProgress(player, quest, 1);
+                playQuestProgressEffect(player, block.getLocation().add(0.5, 0.5, 0.5));
             }
         }
     }
@@ -531,5 +533,19 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         if (!freeFalls.remove(player.getUniqueId())) return;
         event.setCancelled(true);
         player.playSound(player.getLocation(), Sound.ENTITY_GENERIC_BIG_FALL, SoundCategory.MASTER, 1.0f, 0.8f);
+    }
+
+    @EventHandler
+    public void onPlayerCanGrief(PlayerCanGriefEvent event) {
+        Block block = event.getBlock();
+        RPGWorld rpgWorld = getRPGWorld(block.getWorld());
+        if (rpgWorld == null) return;
+        RPGWorld.Belonging belonging = rpgWorld.getBelongingAt(block);
+        if (belonging == null || belonging.town == null) return;
+        Player player = event.getPlayer();
+        if (belonging.structs.isEmpty()
+            || belonging.types.contains(Struct.Type.CROPS)
+            || belonging.types.contains(Struct.Type.LAIR)) return;
+        event.setCancelled(true);
     }
 }

@@ -26,6 +26,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
+import org.bukkit.event.entity.EntityCombustEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityPortalEnterEvent;
@@ -64,6 +65,11 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
 
     @EventHandler
     public void onEntityDamage(EntityDamageEvent event, EntityContext context) {
+        event.setCancelled(true);
+    }
+
+    @EventHandler
+    public void onEntityCombust(EntityCombustEvent event, EntityContext context) {
         event.setCancelled(true);
     }
 

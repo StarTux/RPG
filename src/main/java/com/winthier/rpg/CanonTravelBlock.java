@@ -70,14 +70,14 @@ public final class CanonTravelBlock implements CustomBlock {
                         Msg.sendActionBar(data.player, "&aDestination: &o" + data.town.name);
                     }
                 } else if (seconds < 4) {
-                    data.player.sendTitle(ChatColor.GRAY + "" + (4 - seconds), ChatColor.DARK_GRAY + "Canon Travel", 10, 10, 10);
+                    data.player.sendTitle(ChatColor.GRAY + "" + (4 - seconds), ChatColor.DARK_GRAY + "Cannon Travel", 10, 10, 10);
                     data.player.playSound(data.player.getEyeLocation(), Sound.BLOCK_NOTE_BASEDRUM, SoundCategory.MASTER, 0.5f, 2.0f);
                 } else if (seconds == 4) {
                     data.player.playSound(data.player.getEyeLocation(), Sound.ENTITY_TNT_PRIMED, SoundCategory.MASTER, 0.5f, 0.5f);
                 } else if (seconds == 6) {
                     double vx = plugin.getRandom().nextBoolean() ? 8.0 : -8.0;
                     double vz = plugin.getRandom().nextBoolean() ? 8.0 : -8.0;
-                    data.player.setVelocity(new Vector(0, 20.0, 0));
+                    data.player.setVelocity(new Vector(0, 10.0, 0));
                 }
             } else if (ticks == 118) {
                 data.player.getWorld().spawnParticle(Particle.EXPLOSION_LARGE, data.player.getLocation(), 15, 2, 2, 2, 0);
@@ -98,7 +98,7 @@ public final class CanonTravelBlock implements CustomBlock {
                 data.cancel();
                 return;
             } else {
-                data.player.setVelocity(new Vector(0, 20.0, 0));
+                data.player.setVelocity(new Vector(0, 10.0, 0));
             }
         }
     }

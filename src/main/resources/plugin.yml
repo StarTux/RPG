@@ -3,7 +3,7 @@ description: RPG
 author: StarTux
 version: 0.1
 main: com.winthier.rpg.RPGPlugin
-depend: [ Custom, Exploits ]
+depend: [ Custom, Exploits, GenericEvents ]
 commands:
   rpg:
     description: rpg

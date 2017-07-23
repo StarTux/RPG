@@ -429,7 +429,7 @@ final class RPGWorld {
                 addTownCooldown -= 1;
             } else {
                 tryToAddTown();
-                addTownCooldown = towns.size() * 20;
+                addTownCooldown = towns.size() * 2;
             }
         }
         for (Player player: world.getPlayers()) {
@@ -786,7 +786,7 @@ final class RPGWorld {
                                    .replace("%singular%", singular)
                                    .replace("%plural%", plural));
             }
-            quest.amount = 4 + plugin.getRandom().nextInt(3);
+            quest.amount = 2 + plugin.getRandom().nextInt(3);
             break;
         case HARVEST:
             singular = quest.what.name().toLowerCase().replace("_", " ");

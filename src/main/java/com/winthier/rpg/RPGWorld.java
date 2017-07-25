@@ -49,6 +49,7 @@ final class RPGWorld {
     int addTownCooldown = 0;
     int ticks;
     long timestamp;
+    private final Object LOCK = new Object();
 
     RPGWorld(RPGPlugin plugin, World world) {
         this.plugin = plugin;
@@ -67,15 +68,33 @@ final class RPGWorld {
     }
 
     void save() {
+        writeToDisk(false);
+    }
+
+    void saveImmediately() {
+        writeToDisk(true);
+    }
+
+    private void writeToDisk(boolean immediately) {
         dirty = false;
         YamlConfiguration config = new YamlConfiguration();
         config.set("towns", towns.stream().map(t -> t.serialize()).collect(Collectors.toList()));
         config.set("deliveries", deliveries.stream().map(u -> u.toString()).collect(Collectors.toList()));
         config.set("timestamp", timestamp);
-        try {
-            config.save(new File(world.getWorldFolder(), "winthier.rpg.yml"));
-        } catch (IOException ioe) {
-            ioe.printStackTrace();
+        if (immediately) {
+        } else {
+            writeToDisk(config);
+            plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> writeToDisk(config));
+        }
+    }
+
+    private void writeToDisk(YamlConfiguration config) {
+        synchronized(LOCK) {
+            try {
+                config.save(new File(world.getWorldFolder(), "winthier.rpg.yml"));
+            } catch (IOException ioe) {
+                ioe.printStackTrace();
+            }
         }
     }
 
@@ -439,8 +458,8 @@ final class RPGWorld {
             watcher.save();
         }
         towns.add(town);
-        save();
         plugin.getLogger().info("Town " + town.name + "(" + flagStyle.name().toLowerCase() + "," + fraction.name().toLowerCase() + ") created at " + gt.ax + " " + gt.ay);
+        dirty = true;
         return true;
     }
 

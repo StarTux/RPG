@@ -73,7 +73,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
 
     @Override
     public void onDisable() {
-        if (world != null && world.isDirty()) world.save();
+        if (world != null && world.isDirty()) world.saveImmediately();
         world = null;
     }
 

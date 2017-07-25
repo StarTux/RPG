@@ -21,8 +21,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.map.MapCursor;
-import org.bukkit.metadata.FixedMetadataValue;
-import org.bukkit.metadata.MetadataValue;
 
 @RequiredArgsConstructor
 public final class DeliveryItem implements CustomItem, UncraftableItem, TickableItem {
@@ -48,7 +46,7 @@ public final class DeliveryItem implements CustomItem, UncraftableItem, Tickable
 
     @Override
     public void onTick(ItemContext context, int ticks) {
-        if (ticks % 20 != 0) return;
+        if (!plugin.isUpdateMiniMapCursors()) return;
         Player player = context.getPlayer();
         if (player == null) return;
         if (plugin.getRPGWorld() == null) return;
@@ -71,6 +69,7 @@ public final class DeliveryItem implements CustomItem, UncraftableItem, Tickable
         if (town == null) return;
         RPGWorld.NPC npc = plugin.getRPGWorld().findNPC(vecRecipient.x, vecRecipient.y);
         Block pb = player.getLocation().getBlock();
+        Vec2 vecPlayer = new Vec2(pb.getX(), pb.getZ());
         if (npc == null) return;
         List<Integer> listDot = config.getIntList(KEY_DOT);
         Vec2 dot = config.isSet(KEY_DOT) ? new Vec2(config.getIntList(KEY_DOT)) : null;
@@ -79,25 +78,14 @@ public final class DeliveryItem implements CustomItem, UncraftableItem, Tickable
             dot = vecTarget;
             config.setIntList("dot", dot.serialize());
         }
-        MetadataValue meta = null;
-        for (MetadataValue m: player.getMetadata("MiniMapCursors")) {
-            if (m.getOwningPlugin() == plugin) {
-                meta = m;
-                break;
-            }
-        }
-        List<Map> list;
-        if (meta == null) {
-            list = new ArrayList<>();
-            meta = new FixedMetadataValue(plugin, list);
-            player.setMetadata("MiniMapCursors", meta);
-        } else {
-            list = (List<Map>)meta.value();
-        }
         Map<String, Object> map = new HashMap<>();
         map.put("block", player.getWorld().getBlockAt(dot.x, 65, dot.y));
-        map.put("type", MapCursor.Type.SMALL_WHITE_CIRCLE);
-        list.add(map);
+        if (vecPlayer.maxDistance(vecTarget) < 64) {
+            map.put("type", MapCursor.Type.WHITE_CIRCLE);
+        } else {
+            map.put("type", MapCursor.Type.SMALL_WHITE_CIRCLE);
+        }
+        plugin.getMiniMapCursors(player).add(map);
     }
 
     static Vec2 getRecipient(ItemStack item) {

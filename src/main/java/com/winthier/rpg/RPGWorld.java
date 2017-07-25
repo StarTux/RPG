@@ -11,6 +11,7 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,6 +37,7 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
+import org.bukkit.map.MapCursor;
 
 @Getter
 final class RPGWorld {
@@ -160,6 +162,7 @@ final class RPGWorld {
         String message = "";
         String name = "";
         int questId = -1;
+        UUID entityUuid;
 
         NPC(Vec3 home) {
             this.home = home;
@@ -170,6 +173,7 @@ final class RPGWorld {
             this.message = config.getString("message", "");
             this.name = config.getString("name", "");
             this.questId = config.getInt("quest_id", -1);
+            if (config.isSet("entity_uuid")) this.entityUuid = UUID.fromString(config.getString("entity_uuid"));
         }
 
         Map<String, Object> serialize() {
@@ -178,7 +182,13 @@ final class RPGWorld {
             result.put("home", home.serialize());
             result.put("quest_id", questId);
             result.put("message", message);
+            if (entityUuid != null) result.put("entity_uuid", entityUuid.toString());
             return result;
+        }
+
+        NPCEntity.Watcher findEntityWatcher() {
+            if (entityUuid == null) return null;
+            return (NPCEntity.Watcher)CustomPlugin.getInstance().getEntityManager().getEntityWatcher(entityUuid);
         }
     }
 
@@ -258,6 +268,17 @@ final class RPGWorld {
             case INIT: return false;
             case ENABLED: return progress.containsKey(player.getUniqueId());
             case COMPLETED:
+            case RETURNED:
+            default:
+                return false;
+            }
+        }
+
+        boolean isActiveFor(Player player) {
+            switch (state) {
+            case INIT: return false;
+            case ENABLED: return progress.containsKey(player.getUniqueId());
+            case COMPLETED: return getProgress(player) == amount;
             case RETURNED:
             default:
                 return false;
@@ -409,6 +430,7 @@ final class RPGWorld {
             EntityType et = fraction.villagerTypes.get(generator.randomInt(fraction.villagerTypes.size()));
             Location loc = world.getBlockAt(vec.x, vec.y, vec.z).getLocation().add(0.5, 0.0, 0.5);
             LivingEntity living = (LivingEntity)world.spawnEntity(loc, et);
+            npc.entityUuid = living.getUniqueId();
             living.setAI(false);
             living.setRemoveWhenFarAway(false);
             living.setCustomName("" + fraction.color + ChatColor.ITALIC + npc.name);
@@ -432,17 +454,58 @@ final class RPGWorld {
                 addTownCooldown = towns.size() * 2;
             }
         }
+        Map<Town, List<Player>> townPlayers = new IdentityHashMap<>();
         for (Player player: world.getPlayers()) {
             Block block = player.getLocation().getBlock();
             Belonging belonging = getBelongingAt(block);
-            if (belonging == null || belonging.town == null) continue;
-            if (belonging.lay == Belonging.Lay.CENTRAL) {
-                if (!belonging.town.visited) {
-                    belonging.town.visit();
+            if (belonging != null && belonging.town != null) {
+                List<Player> players = townPlayers.get(belonging.town);
+                if (players == null) {
+                    players = new ArrayList<>();
+                    townPlayers.put(belonging.town, players);
+                }
+                players.add(player);
+                if (belonging.lay == Belonging.Lay.CENTRAL) {
+                    if (!belonging.town.visited) {
+                        belonging.town.visit();
+                    }
                 }
             }
         }
+        for (Town town: townPlayers.keySet()) {
+            tickTown(town, townPlayers.get(town));
+        }
         if (ticks % (20 * 60) == 0 && dirty) save();
+    }
+
+    private boolean flipFlop;
+    void tickTown(Town town, List<Player> players) {
+        int townId = towns.indexOf(town);
+        if (plugin.isUpdateMiniMapCursors()) {
+            flipFlop = !flipFlop;
+            for (Player player: players) {
+                for (NPC npc: town.npcs) {
+                    if (npc.questId >= 0) {
+                        Quest quest = findQuest(townId, npc.questId);
+                        if (quest != null
+                            && quest.isActiveFor(player)) {
+                            if (quest.getProgress(player) == quest.amount && flipFlop) continue;
+                            NPCEntity.Watcher watcher = npc.findEntityWatcher();
+                            Block block;
+                            if (watcher != null) {
+                                block = watcher.getEntity().getLocation().getBlock();
+                            } else {
+                                block = world.getBlockAt(npc.home.x, npc.home.y, npc.home.z);
+                            }
+                            Map map = new HashMap();
+                            map.put("block", block);
+                            map.put("type", MapCursor.Type.SMALL_WHITE_CIRCLE);
+                            plugin.getMiniMapCursors(player).add(map);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     Town findTown(int townId) {
@@ -494,6 +557,23 @@ final class RPGWorld {
                     giveProgress(player, quest, 0);
                     dirty = true;
                     result = quest.messages.get(Quest.MessageType.DESCRIPTION);
+                    String msg;
+                    String what = Msg.capitalize(quest.what.name().replace("_", " "));
+                    switch (quest.type) {
+                    case MINE: msg = "Mine " + quest.amount + " " + what; break;
+                    case FIND_GEM: msg = "Find the " + quest.tokenName; break;
+                    case KILL: msg = "Kill " + quest.amount + " " + what; break;
+                    case SHEAR: msg = "Shear " + quest.amount + " " + what; break;
+                    case BREED: msg = "Breed " + quest.amount + " " + what; break;
+                    case TAME: msg = "Tame " + quest.amount + " " + what; break;
+                    case HARVEST: msg = "Harvest " + quest.amount + " " + what; break;
+                    case FIND_LAIR: msg = "Find the " + what + " lair"; break;
+                    default: msg = null; break;
+                    }
+                    if (msg != null) Msg.sendActionBar(player, "&aQuest Received: " + msg);
+                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> player.playSound(player.getEyeLocation(), Sound.BLOCK_NOTE_XYLOPHONE, 0.5f, 0.5f), 0);
+                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> player.playSound(player.getEyeLocation(), Sound.BLOCK_NOTE_XYLOPHONE, 0.5f, 0.6f), 3);
+                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> player.playSound(player.getEyeLocation(), Sound.BLOCK_NOTE_XYLOPHONE, 0.5f, 0.8f), 6);
                 }
                 break;
             case COMPLETED:

@@ -157,7 +157,7 @@ quest_breed_progress:
 quest_breed_success:
 - Thanks to you breeding our %plural%, the farm is saved!
 quest_harvest:
-- It is %singular% season! If only our farm was to grow grow some %plural%, we could harvest much faster.
+- It is %singular% season! If only our farm was to grow some %plural%, we could harvest much faster.
 - I wish somebody would grow and harvest our %singular% farm.
 - The %singular% farms of %town% need a competent farmer to grow and full harvest.
 quest_harvest_progress:

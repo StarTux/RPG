@@ -696,7 +696,7 @@ final class Generator {
                         torches -= 1;
                         style.torch.facing(facing).setBlockNoPhysics(floor.getRelative(0, window ? 1 : 2, 0));
                     } else {
-                        switch (randomInt(25)) {
+                        switch (randomInt(24)) {
                         case 0:
                             if (!window) floor.getRelative(0, 3, 0).setType(Material.BOOKSHELF);
                             // fallthrough
@@ -798,6 +798,7 @@ final class Generator {
                             Tile.of(Material.LADDER, facing.dataBlock).setBlock(floor.getRelative(0, 1, 0));
                             break;
                         case 23:
+                        default:
                             Vec2 nbor = vec.relative(facing.rotate().vector);
                             if (decl.contains(nbor) && tiles.get(nbor) == RoomTile.FLOOR) {
                                 tiles.put(nbor, RoomTile.DECORATION);
@@ -818,30 +819,6 @@ final class Generator {
                             } else {
                                 style.stair.or(facing.dataStair).setBlock(floor.getRelative(0, 1, 0));
                             }
-                            break;
-                        case 24:
-                        default:
-                            Tile tile;
-                            switch (color) {
-                            case 0: tile = Tile.of(Material.WHITE_SHULKER_BOX, 1); break;
-                            case 1: tile = Tile.of(Material.ORANGE_SHULKER_BOX, 1); break;
-                            case 2: tile = Tile.of(Material.MAGENTA_SHULKER_BOX, 1); break;
-                            case 3: tile = Tile.of(Material.LIGHT_BLUE_SHULKER_BOX, 1); break;
-                            case 4: tile = Tile.of(Material.YELLOW_SHULKER_BOX, 1); break;
-                            case 5: tile = Tile.of(Material.LIME_SHULKER_BOX, 1); break;
-                            case 6: tile = Tile.of(Material.PINK_SHULKER_BOX, 1); break;
-                            case 7: tile = Tile.of(Material.GRAY_SHULKER_BOX, 1); break;
-                            case 8: tile = Tile.of(Material.SILVER_SHULKER_BOX, 1); break;
-                            case 9: tile = Tile.of(Material.CYAN_SHULKER_BOX, 1); break;
-                            case 10: tile = Tile.of(Material.PURPLE_SHULKER_BOX, 1); break;
-                            case 11: tile = Tile.of(Material.BLUE_SHULKER_BOX, 1); break;
-                            case 12: tile = Tile.of(Material.BROWN_SHULKER_BOX, 1); break;
-                            case 13: tile = Tile.of(Material.GREEN_SHULKER_BOX, 1); break;
-                            case 14: tile = Tile.of(Material.RED_SHULKER_BOX, 1); break;
-                            case 15: default: tile = Tile.of(Material.BLACK_SHULKER_BOX, 1);
-                            }
-                            tile.setBlock(floor.getRelative(0, 1, 0));
-                            break;
                         }
                     }
                 }

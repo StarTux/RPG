@@ -140,7 +140,7 @@ public final class NPCSpeechEntity implements CustomEntity, TickableEntity {
                         oldshown = shown;
                         entity.setCustomName(color + message.substring(0, shown));
                         entity.setCustomNameVisible(true);
-                        entity.getWorld().playSound(entity.getLocation(), Sound.BLOCK_ANVIL_BREAK, SoundCategory.NEUTRAL, 0.25f, 2.0f);
+                        entity.getWorld().playSound(entity.getLocation(), Sound.BLOCK_ANVIL_BREAK, SoundCategory.NEUTRAL, 0.15f, 2.0f);
                     }
                 }
             }

@@ -98,7 +98,7 @@ public final class NPCEntity implements CustomEntity, TickableEntity {
         event.setCancelled(true);
         if (event.getHand() != EquipmentSlot.HAND) return;
         Player player = event.getPlayer();
-        ((Watcher)context.getEntityWatcher()).onTouch(player, null);
+        ((Watcher)context.getEntityWatcher()).onTouch(player, player.getInventory().getItemInMainHand());
     }
 
     @EventHandler

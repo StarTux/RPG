@@ -48,6 +48,8 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityTameEvent;
 import org.bukkit.event.player.PlayerShearEntityEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -62,11 +64,11 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
     private Reputations reputations;
     private Set<GameMode> allowedGameModes = EnumSet.of(GameMode.SURVIVAL, GameMode.ADVENTURE);
     private Set<UUID> freeFalls = new HashSet<>();
+    private boolean updateMiniMapCursors;
 
     @Override
     public void onEnable() {
         getServer().getPluginManager().registerEvents(this, this);
-        getServer().getScheduler().runTaskTimer(this, () -> { if (getRPGWorld() != null) world.onTick(); }, 1, 1);
     }
 
     @Override
@@ -92,15 +94,38 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         world = null;
     }
 
+    List<Map> getMiniMapCursors(Player player) {
+        MetadataValue meta = null;
+        for (MetadataValue m: player.getMetadata("MiniMapCursors")) {
+            if (m.getOwningPlugin() == this) {
+                meta = m;
+                break;
+            }
+        }
+        List<Map> list;
+        if (meta == null) {
+            list = new ArrayList<>();
+            meta = new FixedMetadataValue(this, list);
+            player.setMetadata("MiniMapCursors", meta);
+        } else {
+            list = (List<Map>)meta.value();
+        }
+        return list;
+    }
+
     @EventHandler
     public void onCustomTick(CustomTickEvent event) {
         switch (event.getType()) {
         case WILL_TICK_ITEMS:
-            if (event.getTicks() % 20 == 0) {
+            if (event.getTicks() % 10 == 0) {
+                updateMiniMapCursors = true;
                 for (Player player: getServer().getOnlinePlayers()) {
-                    player.removeMetadata("MiniMapCursors", this);
+                    getMiniMapCursors(player).clear();
                 }
+            } else {
+                updateMiniMapCursors = false;
             }
+            if (getRPGWorld() != null) world.onTick();
             break;
         default: break;
         }

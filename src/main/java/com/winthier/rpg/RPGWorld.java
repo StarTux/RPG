@@ -629,6 +629,13 @@ final class RPGWorld {
         String result = null;
         do {
             result = generator.generateName(syllables);
+            String cleaned = generator.cleanSpecialChars(result);
+            final String[] forbiddenWords = {"nigger", "nigga", "nygger", "nygga", "penis", "penys", "dick", "fuck", "sperm"};
+            for (String forbiddenWord: forbiddenWords) {
+                if (cleaned.contains(forbiddenWord)) {
+                    continue;
+                }
+            }
             for (Town town: towns) {
                 if (result.equals(town.name)) {
                     result = null;

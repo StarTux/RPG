@@ -68,29 +68,31 @@ final class Generator {
     }
 
     String generateName(int syllables) {
-        final String[] beginSyllable = {"b", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "qu", "r", "s", "t", "v", "w", "x", "z", "sh", "st", "sn", "sk", "sl", "sm", "ch", "kr", "fr", "gr", "tr", "y", "bl", "ph", "pl", "pr", "str", "chr", "schw", "th", "thr", "thn", "rh"};
+        final String[] beginSyllable = {"b", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "qu", "r", "s", "t", "v", "w", "x", "y", "z"};
+        final String[] beginLong = {"gl", "gm", "gl", "gr", "sh", "sk", "sl", "sm", "sn", "sp", "st", "ch", "kr", "fr", "tr", "bl", "ph", "pl", "pr", "str", "chr", "schw", "th", "thr", "thn", "rh"};
         final String[] vocals = {"a", "e", "i", "o", "u"};
         final String[] longVocals = {"aa", "ee", "oo"};
         final String[] diphtongs = {"ae", "ai", "au", "ea", "ei", "ia", "ie", "io", "oa", "oi", "ou", "ua", "ui"};
         final String[] accents = {"á", "â", "à", "é", "ê", "è", "ó", "ô", "ò", "ú", "û", "ù"};
         final String[] umlauts = {"ä", "ö", "ü"};
-        final String[] endSyllable = {"b", "d", "f", "g", "k", "l", "m", "n", "p", "r", "s", "t", "v", "w", "x", "y", "z", "st", "nd", "sd", "sh", "tsh", "sch", "ng", "nk", "rg", "rk", "rs", "rt", "lt", "ld", "rn", "ts", "mb", "rst", "tch", "ch", "th", "rth", "nth", "ns"};
+        final String[] endSyllable = {"b", "d", "f", "g", "k", "l", "m", "n", "p", "r", "s", "t", "v", "w", "x", "y", "z"};
+        final String[] endLong = {"gh", "ld", "lf", "lg", "lm", "ln", "ls", "lt", "mb", "mf", "mh", "mk", "mn", "mp", "ms", "mt", "mz", "nd", "ng", "nk", "rg", "rk", "rm", "rn", "rs", "rt", "sb", "sch", "st", "sd", "sh", "tsh", "ts", "rst", "tch", "ch", "th", "rth", "nth", "ns"};
         final String[] endStrong = {"ff", "gg", "kk", "ll", "mm", "nn", "pp", "rr", "ss", "tt", "tz", "ck"};
         StringBuilder sb = new StringBuilder();
         boolean priorHasEnd = true;
         boolean priorStrongEnd = false;
+        boolean priorLongEnd = false;
         int useSpecialChars = randomInt(2);
         for (int i = 0; i < syllables; i += 1) {
-            boolean hasBegin = !priorHasEnd || random.nextBoolean();
-            boolean hasEnd = random.nextBoolean();
-            if (!hasBegin && !hasEnd) {
-                if (random.nextBoolean()) {
-                    hasBegin = true;
+            boolean hasBegin = priorHasEnd && !priorLongEnd && !priorStrongEnd ? random.nextInt(3) > 0 : true;
+            boolean hasEnd = hasBegin ? random.nextInt(5) == 0 : true;
+            if (hasBegin) {
+                if (priorLongEnd || random.nextInt(beginSyllable.length + beginLong.length) < beginSyllable.length) {
+                    sb.append(beginSyllable[randomInt(beginSyllable.length)]);
                 } else {
-                    hasEnd = true;
+                    sb.append(beginLong[randomInt(beginLong.length)]);
                 }
             }
-            if (hasBegin) sb.append(beginSyllable[randomInt(beginSyllable.length)]);
             boolean allowStrongEnd = true;
             switch (randomInt(6)) {
             case 0:
@@ -106,24 +108,25 @@ final class Generator {
             default: sb.append(vocals[randomInt(vocals.length)]);
             }
             if (hasEnd) {
-                if (!priorStrongEnd && allowStrongEnd && randomInt(3) == 0) {
+                if (!priorStrongEnd && allowStrongEnd && randomInt(5) == 0) {
                     sb.append(endStrong[randomInt(endStrong.length)]);
                     priorStrongEnd = true;
+                    priorLongEnd = false;
                 } else {
-                    sb.append(endSyllable[randomInt(endSyllable.length)]);
-                    priorStrongEnd = false;
+                    if (random.nextInt(endSyllable.length + endLong.length) < endSyllable.length) {
+                        sb.append(endSyllable[randomInt(endSyllable.length)]);
+                        priorStrongEnd = false;
+                        priorLongEnd = false;
+                    } else {
+                        sb.append(endLong[randomInt(endLong.length)]);
+                        priorStrongEnd = false;
+                        priorLongEnd = true;
+                    }
                 }
             }
             priorHasEnd = hasEnd;
         }
         String result = sb.toString();
-        String cleaned = cleanSpecialChars(result);
-        final String[] forbiddenWords = {"nigger", "nigga", "nygger", "nygga", "penis", "penys", "dick", "fuck"};
-        for (String forbiddenWord: forbiddenWords) {
-            if (cleaned.contains(forbiddenWord)) {
-                return generateName(syllables);
-            }
-        }
         return result.substring(0, 1).toUpperCase() + result.substring(1);
     }
 

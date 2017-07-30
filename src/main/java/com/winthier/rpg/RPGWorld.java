@@ -29,9 +29,12 @@ import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.World;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Creature;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -113,6 +116,7 @@ final class RPGWorld {
         final String name;
         final Fraction fraction;
         boolean visited = false;
+        transient int defenderCooldown = 0;
 
         Town(Rectangle area, String name, Fraction fraction) {
             this.area = area;
@@ -524,6 +528,58 @@ final class RPGWorld {
                     }
                 }
             }
+        }
+        if (town.defenderCooldown > 0) {
+            town.defenderCooldown -= 1;
+        } else {
+            for (Player player: players) {
+                if (!plugin.getAllowedGameModes().contains(player.getGameMode())) continue;
+                Block pb = player.getLocation().getBlock();
+                int rep = plugin.getReputations().getReputation(player, town.fraction);
+                if (rep < 0 && town.area.contains(pb.getX(), pb.getZ()) && pb.getLightFromSky() > 0) {
+                    int defenderCount = 0;
+                    for (Entity nearby: player.getNearbyEntities(16, 16, 16)) {
+                        if (nearby.getScoreboardTags().contains("Winthier.RPG.Defender")) defenderCount += 1;
+                    }
+                    if (defenderCount >= 20) continue;
+                    EntityType et;
+                    if (town.fraction == Fraction.VILLAGER) {
+                        et = EntityType.IRON_GOLEM;
+                    } else {
+                        et = town.fraction.villagerTypes.get(plugin.getRandom().nextInt(town.fraction.villagerTypes.size()));
+                    }
+                    final int rad = 8;
+                    int dx, dz;
+                    if (plugin.getRandom().nextBoolean()) {
+                        dx = plugin.getRandom().nextBoolean() ? rad : -rad;
+                        dz = plugin.getRandom().nextInt(rad * 2) - rad;
+                    } else {
+                        dx = plugin.getRandom().nextInt(rad * 2) - rad;
+                        dz = plugin.getRandom().nextBoolean() ? rad : -rad;
+                    }
+                    Location loc = world.getHighestBlockAt(pb.getX() + dx, pb.getZ() + dz).getLocation().add(0.5, 0.5, 0.5);
+                    LivingEntity defender = (LivingEntity)world.spawnEntity(loc, et);
+                    defender.addScoreboardTag("Winthier.RPG.Defender");
+                    defender.setRemoveWhenFarAway(true);
+                    defender.getAttribute(Attribute.GENERIC_MAX_HEALTH).setBaseValue(100.0);
+                    defender.setHealth(100.0);
+                    defender.setCustomName("" + ChatColor.RESET + town.fraction.color + town.name + " Defender");
+                    if (defender instanceof Creature) ((Creature)defender).setTarget(player);
+                    switch (et) {
+                    case SKELETON:
+                    case ZOMBIE:
+                    case HUSK:
+                    case STRAY:
+                        ItemStack helmet = defender.getEquipment().getHelmet();
+                        if (helmet == null || helmet.getType() == Material.AIR) {
+                            defender.getEquipment().setHelmet(new ItemStack(Material.IRON_HELMET));
+                        }
+                        break;
+                    default: break;
+                    }
+                }
+            }
+            town.defenderCooldown = 20;
         }
     }
 

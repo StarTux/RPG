@@ -14,7 +14,7 @@ public final class RPGTest {
     @Test
     public void main() {
         Generator generator = new Generator();
-        for (int i = 0; i < 2; i += 1) {
+        for (int i = 0; i < 10; i += 1) {
             House house = generator.generateHouse(16, 16);
             Debug.printHouse(house);
         }
@@ -28,7 +28,7 @@ public final class RPGTest {
         for (int i = 0; i < 9999; i += 1) {
             String name = generator.generateName(5);
             String name2 = generator.cleanSpecialChars(name.toLowerCase());
-            if (name2.contains("gay")) System.out.println("= " + name);
+            if (name2.contains("ass")) System.out.println("= " + name);
         }
         System.out.println();
     }

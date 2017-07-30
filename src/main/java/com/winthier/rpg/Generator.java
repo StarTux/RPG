@@ -1639,8 +1639,8 @@ final class Generator {
             for (Room room2: rooms) {
                 if (room1 != room2
                     && !done.contains(room2)) {
-                    boolean conX = (room1.ax == room2.bx || room1.bx == room2.ax) && room1.ay <= room2.by && room1.by >= room2.ay;
-                    boolean conY = (room1.ay == room2.by || room1.by == room2.ay) && room1.ax <= room2.bx && room1.bx >= room2.ax;
+                    boolean conX = (room1.ax == room2.bx || room1.bx == room2.ax) && room1.ay < room2.by - 1 && room1.by > room2.ay + 1;
+                    boolean conY = (room1.ay == room2.by || room1.by == room2.ay) && room1.ax < room2.bx - 1 && room1.bx > room2.ax + 1;
                     if (conX || conY) {
                         connected.add(room2);
                         todo.add(room2);

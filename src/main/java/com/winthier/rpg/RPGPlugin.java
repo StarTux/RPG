@@ -6,14 +6,13 @@ import com.winthier.custom.event.CustomTickEvent;
 import com.winthier.custom.util.Items;
 import com.winthier.exploits.bukkit.BukkitExploits;
 import com.winthier.generic_events.PlayerCanGriefEvent;
-import com.winthier.rpg.Generator.House;
-import com.winthier.rpg.Generator.Town;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -37,14 +36,17 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.BlockDamageEvent;
 import org.bukkit.event.entity.EntityBreedEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.EntityTameEvent;
 import org.bukkit.event.player.PlayerShearEntityEvent;
 import org.bukkit.inventory.ItemStack;
@@ -176,7 +178,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
             String structure = args[1];
             generator.setFlags(flags);
             if (structure.equals("town")) {
-                Town town = generator.tryToPlantTown(player.getLocation().getChunk(), size);
+                Generator.Town town = generator.tryToPlantTown(player.getLocation().getChunk(), size);
                 if (town == null) {
                     sender.sendMessage("FAIL!");
                     return true;
@@ -185,9 +187,9 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
                 generator.plantTown(player.getWorld(), town);
                 sender.sendMessage("Success!");
                 Debug.printChunks(town.chunks);
-                for (House house: town.houses) Debug.printHouse(house);
+                for (Generator.House house: town.houses) Debug.printHouse(house);
             } else if (structure.equals("house")) {
-                House house = generator.generateHouse(size, size);
+                Generator.House house = generator.generateHouse(size, size);
                 generator.plantHouse(player.getLocation().getBlock().getRelative(-size / 2, 0, -size / 2), house);
                 sender.sendMessage("House size " + size + " generated with " + flags);
                 Debug.printHouse(house);
@@ -204,7 +206,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
                 generator.plantMine(player.getLocation().getBlock().getRelative(-size / 2, 0, -size / 2), size, size);
                 sender.sendMessage("Mine generated");
             } else if (structure.equals("lair")) {
-                House house = generator.generateHouse(size, size);
+                Generator.House house = generator.generateHouse(size, size);
                 generator.plantLair(player.getLocation().getBlock().getRelative(-size / 2, 0, -size / 2), house, null);
                 sender.sendMessage("Monster base generated");
                 Debug.printHouse(house);
@@ -333,6 +335,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         Player player = event.getPlayer();
         if (!allowedGameModes.contains(player.getGameMode())) return;
         if (!belonging.structs.isEmpty()
+            && !BukkitExploits.getInstance().isPlayerPlaced(block)
             && !belonging.types.contains(Struct.Type.CROPS)
             && !belonging.types.contains(Struct.Type.LAIR)) {
             getReputations().giveReputation(player, belonging.town.fraction, -1);
@@ -386,6 +389,29 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
                 playQuestProgressEffect(player, block.getLocation().add(0.5, 0.5, 0.5));
             }
         }
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onBlockPlace(BlockPlaceEvent event) {
+        Block block = event.getBlock();
+        RPGWorld rpgWorld = getRPGWorld(block.getWorld());
+        if (rpgWorld == null) return;
+        RPGWorld.Belonging belonging = rpgWorld.getBelongingAt(block);
+        if (belonging == null || belonging.town == null) return;
+        Player player = event.getPlayer();
+        if (!allowedGameModes.contains(player.getGameMode())) return;
+        if (belonging.structs.isEmpty()) return;
+        if (belonging.types.contains(Struct.Type.LAIR)) return;
+        switch (block.getType()) {
+        case FIRE:
+        case TNT:
+            break;
+        default: return;
+        }
+        Location loc = block.getLocation().add(0.5, 1.5, 0.5);
+        player.spawnParticle(Particle.VILLAGER_ANGRY, loc, 3, .2, .2, .2, 0.0);
+        player.playSound(loc, Sound.ENTITY_VILLAGER_HURT, SoundCategory.MASTER, 0.1f, 0.1f);
+        getReputations().giveReputation(player, belonging.town.fraction, -1);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -535,6 +561,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
         if (belonging.structs.isEmpty()
             || belonging.types.contains(Struct.Type.CROPS)
             || belonging.types.contains(Struct.Type.LAIR)) return;
+        if (BukkitExploits.getInstance().isPlayerPlaced(block)) return;
         PotionEffect potion = player.getPotionEffect(PotionEffectType.SLOW_DIGGING);
         int level;
         int duration;
@@ -572,5 +599,35 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
             || belonging.types.contains(Struct.Type.CROPS)
             || belonging.types.contains(Struct.Type.LAIR)) return;
         event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onEntityExplode(EntityExplodeEvent event) {
+        if (getRPGWorld() == null) return;
+        Block eb = event.getEntity().getLocation().getBlock();
+        RPGWorld.Town town = null;
+        for (RPGWorld.Town t: world.towns) {
+            if (t.area.contains(eb.getX(), eb.getZ())) {
+                town = t;
+                break;
+            }
+        }
+        if (town == null) return;
+        int count = 0;
+        for (Iterator<Block> iter = event.blockList().iterator(); iter.hasNext();) {
+            Block block = iter.next();
+            for (Struct struct: town.structs) {
+                if (struct.boundingBox.contains(block.getX(), block.getY(), block.getZ())) {
+                    iter.remove();
+                    count += 1;
+                }
+            }
+        }
+        if (count > 0 && event.getEntity() instanceof TNTPrimed) {
+            TNTPrimed tnt = (TNTPrimed)event.getEntity();
+            if (tnt.getSource() != null && tnt.getSource() instanceof Player) {
+                getReputations().giveReputation((Player)tnt.getSource(), town.fraction, -count);
+            }
+        }
     }
 }

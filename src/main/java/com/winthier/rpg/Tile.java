@@ -284,12 +284,12 @@ final class Tile {
 
     void setBlock(Block block) {
         block.setTypeIdAndData(mat.getId(), (byte)data, true);
-        if (mat == Material.STONE) BukkitExploits.getInstance().setPlayerPlaced(block, true);
+        if (mat == Material.STONE && data == 0) BukkitExploits.getInstance().setPlayerPlaced(block, true);
     }
 
     void setBlockNoPhysics(Block block) {
         block.setTypeIdAndData(mat.getId(), (byte)data, false);
-        if (mat == Material.STONE) BukkitExploits.getInstance().setPlayerPlaced(block, true);
+        if (mat == Material.STONE && data == 0) BukkitExploits.getInstance().setPlayerPlaced(block, true);
     }
 
     Tile or(int data) {

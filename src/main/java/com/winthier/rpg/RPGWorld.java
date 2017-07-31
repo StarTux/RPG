@@ -85,8 +85,8 @@ final class RPGWorld {
         config.set("deliveries", deliveries.stream().map(u -> u.toString()).collect(Collectors.toList()));
         config.set("timestamp", timestamp);
         if (immediately) {
-        } else {
             writeToDisk(config);
+        } else {
             plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> writeToDisk(config));
         }
     }

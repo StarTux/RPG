@@ -109,6 +109,7 @@ final class RPGWorld {
     final class Town {
         final Rectangle area;
         final Rectangle questArea;
+        final Rectangle exclusiveArea;
         final List<NPC> npcs = new ArrayList<>();
         final List<Quest> quests = new ArrayList<>();
         final List<String> tags = new ArrayList<>();
@@ -121,6 +122,7 @@ final class RPGWorld {
         Town(Rectangle area, String name, Fraction fraction) {
             this.area = area;
             this.questArea = area.grow(96);
+            this.exclusiveArea = area.grow(255);
             this.name = name;
             this.fraction = fraction;
         }
@@ -140,6 +142,7 @@ final class RPGWorld {
             }
             this.area = new Rectangle(config.getIntegerList("area"));
             this.questArea = area.grow(96);
+            this.exclusiveArea = area.grow(255);
             this.name = config.getString("name");
             this.fraction = Fraction.valueOf(config.getString("fraction"));
             this.tags.addAll(config.getStringList("tags"));
@@ -317,15 +320,15 @@ final class RPGWorld {
             return false;
         }
         Rectangle area = new Rectangle(gt.ax, gt.ay, gt.bx, gt.by);
-        Rectangle questArea = area.grow(96);
+        Rectangle exclusiveArea = area.grow(255);
         for (Town town: towns) {
-            if (town.questArea.intersects(questArea)) {
+            if (town.exclusiveArea.intersects(exclusiveArea)) {
                 return false;
             }
         }
         for (Player player: world.getPlayers()) {
             Location loc = player.getLocation();
-            if (questArea.contains(loc.getBlockX(), loc.getBlockZ())) return false;
+            if (area.contains(loc.getBlockX(), loc.getBlockZ())) return false;
         }
         List<Fraction> fractions = new ArrayList<>();
         for (Fraction fraction: Fraction.values()) {

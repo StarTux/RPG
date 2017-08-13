@@ -601,7 +601,12 @@ final class Generator {
         }
         // Decorations
         if (!noDecoration) {
-            int beds = 1 + randomInt(house.rooms.size());
+            int beds;
+            if (uniqueFlags.get(Flag.Strategy.PURPOSE) == Flag.SHOP) {
+                beds = 0;
+            } else {
+                beds = 1 + randomInt(house.rooms.size());
+            }
             for (Room room: house.rooms) {
                 boolean bed = false;
                 int amount = room.width() + room.height();
@@ -696,7 +701,24 @@ final class Generator {
                         torches -= 1;
                         placeDecoration(Decoration.TORCH, block, vec, facing, window);
                     } else {
-                        Decoration decoration = Decoration.values()[randomInt(Decoration.values().length)];
+                        Decoration decoration;
+                        switch (uniqueFlags.get(Flag.Strategy.PURPOSE)) {
+                        case SHOP:
+                            switch (random.nextInt(10)) {
+                            case 0: decoration = Decoration.BOOKSHELF; break;
+                            case 1: decoration = Decoration.JUKEBOX; break;
+                            case 2: decoration = Decoration.CHEST; break;
+                            case 3: decoration = Decoration.CHAIR; break;
+                            case 4: decoration = Decoration.TABLE; break;
+                            case 5: decoration = Decoration.ENDER_CHEST; break;
+                            case 6: decoration = Decoration.LADDER; break;
+                            case 7: decoration = Decoration.BANNER; break;
+                            default: decoration = Decoration.GOODS_SHELF;
+                            }
+                            break;
+                        default:
+                            decoration = Decoration.values()[randomInt(Decoration.values().length)];
+                        }
                         placeDecoration(decoration, block, vec, facing, window);
                     }
                 }
@@ -929,7 +951,7 @@ final class Generator {
             break;
         case LADDER:
             if (!window) {
-                for (int i = 1; i < roomHeight; i += 1) {
+                for (int i = 1; i < roomHeight - 1; i += 1) {
                     Tile.of(Material.LADDER, facing.dataBlock).setBlock(block.getRelative(0, i, 0));
                 }
             }
@@ -957,6 +979,11 @@ final class Generator {
                 return false;
             }
             break;
+        case GOODS_SHELF:
+            for (int i = 0; i < (window ? 1 : roomHeight - 2); i += 2) {
+                style.slab.or(8).setBlock(block.getRelative(0, i, 0));
+                Tile.of(Material.CHEST).facing(facing).setBlock(block.getRelative(0, i + 1, 0));
+            }
         default: return false;
         }
         return true;
@@ -2254,6 +2281,7 @@ final class Generator {
         ENCHANTMENT_TABLE,
         ENDER_CHEST,
         LADDER,
-        BED;
+        BED,
+        GOODS_SHELF;
     }
 }

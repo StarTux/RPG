@@ -33,12 +33,27 @@ import org.bukkit.material.Colorable;
 import org.bukkit.material.MaterialData;
 
 final class Generator {
+    static final Set<Material> replaceMats = EnumSet.of(Material.LOG, Material.LOG_2, Material.LEAVES, Material.LEAVES_2, Material.PUMPKIN, Material.HUGE_MUSHROOM_1, Material.HUGE_MUSHROOM_2, Material.SNOW, Material.ICE, Material.PACKED_ICE);
+
     final RPGPlugin plugin;
     final Random random = new Random(System.currentTimeMillis());
-    final Set<Material> replaceMats = EnumSet.of(Material.LOG, Material.LOG_2, Material.LEAVES, Material.LEAVES_2, Material.PUMPKIN, Material.HUGE_MUSHROOM_1, Material.HUGE_MUSHROOM_2, Material.SNOW, Material.ICE, Material.PACKED_ICE);
     final Map<Vec2, Block> highestBlocks = new HashMap<>();
     private Set<Flag> flags = EnumSet.noneOf(Flag.class);
     private Map<Flag.Strategy, Flag> uniqueFlags = new EnumMap<>(Flag.Strategy.class);
+    // Transient
+    private int roomHeight;
+    private Style style;
+    private Town town;
+    private House house;
+
+    Generator(RPGPlugin plugin) {
+        this.plugin = plugin;
+        for (Flag.Strategy strat: Flag.Strategy.values()) uniqueFlags.put(strat, Flag.RANDOM);
+    }
+
+    Generator() {
+        this((RPGPlugin)null);
+    }
 
     int randomInt(int i) {
         if (i < 2) return 0;
@@ -48,19 +63,10 @@ final class Generator {
     void setFlags(Collection<Flag> newFlags) {
         this.flags.clear();
         this.flags.addAll(newFlags);
-        uniqueFlags.clear();
         for (Flag.Strategy strat: Flag.Strategy.values()) uniqueFlags.put(strat, Flag.RANDOM);
         for (Flag flag: flags) {
             uniqueFlags.put(flag.strategy, flag);
         }
-    }
-
-    Generator(RPGPlugin plugin) {
-        this.plugin = plugin;
-    }
-
-    Generator() {
-        this.plugin = null;
     }
 
     String generateName() {
@@ -237,6 +243,7 @@ final class Generator {
     }
 
     void plantTown(World world, Town town) {
+        this.town = town;
         Collections.shuffle(town.chunks);
         List<Vec2> roadBlocks = new ArrayList<>();
         for (Vec2 chunk: town.chunks) {
@@ -365,6 +372,7 @@ final class Generator {
     }
 
     Struct plantHouse(Block start, House house) {
+        this.house = house;
         Flag flagAltitude = uniqueFlags.get(Flag.Strategy.ALTITUDE);
         Map<Vec2, RoomTile> tiles = house.tiles;
         boolean noRoof = flags.contains(Flag.NO_ROOF) || flagAltitude == Flag.UNDERGROUND;
@@ -393,8 +401,12 @@ final class Generator {
         }
         Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
         int color = randomInt(16);
-        int roomHeight = 4 + randomInt(3);
-        int windowHeight = 1 + randomInt(roomHeight - 3);
+        roomHeight = 4 + randomInt(3);
+        int windowHeight;
+        switch (uniqueFlags.get(Flag.Strategy.PURPOSE)) {
+        case SHOP: windowHeight = roomHeight - 2; break;
+        default: windowHeight = 1 + randomInt(roomHeight - 3);
+        }
         house.offset = new Vec3(offset.getX(), offset.getY(), offset.getZ());
         {
             int ax, az, bx, bz;
@@ -415,7 +427,7 @@ final class Generator {
         }
         Flag flagDoor = uniqueFlags.get(Flag.Strategy.DOOR);
         Flag flagStyle = uniqueFlags.get(Flag.Strategy.STYLE);
-        Style style = new Style(flagStyle, color);
+        style = new Style(flagStyle, color);
         Material matDoor;
         switch (flagDoor) {
         case RANDOM:
@@ -593,7 +605,7 @@ final class Generator {
             for (Room room: house.rooms) {
                 boolean bed = false;
                 int amount = room.width() + room.height();
-                int torches = 2 + randomInt(3);
+                int torches = 1 + randomInt(2);
                 Set<Vec2> decs = new HashSet<>();
                 int ax = room.ax + 1;
                 int ay = room.ay + 1;
@@ -642,9 +654,9 @@ final class Generator {
                         decs.remove(new Vec2(room.bx - 2, y));
                     }
                 }
-                List<Vec2> decl = new ArrayList<>(decs);
-                Collections.shuffle(decl, random);
-                for (Vec2 vec: decl) {
+                house.decorationList = new ArrayList<>(decs);
+                Collections.shuffle(house.decorationList, random);
+                for (Vec2 vec: house.decorationList) {
                     if (tiles.get(vec) != RoomTile.FLOOR) continue;
                     RoomTile[] nbors = {
                         tiles.get(vec.relative(0, -1)),
@@ -674,158 +686,20 @@ final class Generator {
                         }
                     }
                     if (skip) continue;
-                    Block floor = offset.getRelative(vec.x, 0, vec.y);
+                    Block block = offset.getRelative(vec.x, 1, vec.y);
                     house.tiles.put(vec, RoomTile.DECORATION);
-                    if (!bed && beds > 0 && decl.contains(vec.relative(facing.rotate().vector)) && tiles.get(vec.relative(facing.rotate().vector)) == RoomTile.FLOOR) {
+                    if (!bed && beds > 0 && house.decorationList.contains(vec.relative(facing.rotate().vector)) && tiles.get(vec.relative(facing.rotate().vector)) == RoomTile.FLOOR) {
                         bed = true;
                         beds -= 1;
-                        Vec2 nbor = vec.relative(facing.rotate().vector);
-                        tiles.put(nbor, RoomTile.DECORATION);
-                        Facing faceDown = facing.rotate();
-                        Facing faceUp = faceDown.opposite();
-                        Block blockHead = floor.getRelative(0, 1, 0);
-                        Block blockBottom = floor.getRelative(faceDown.vector.x, 1, faceDown.vector.y);
-                        Tile.of(Material.BED_BLOCK).or(faceUp.dataBed | 8).setBlockNoPhysics(blockHead);
-                        Tile.of(Material.BED_BLOCK).or(faceUp.dataBed).setBlockNoPhysics(blockBottom);
-                        DyeColor bedColor = DyeColor.values()[color];
-                        org.bukkit.block.Bed bedState;
-                        bedState = (org.bukkit.block.Bed)blockHead.getState();
-                        bedState.setColor(bedColor);
-                        bedState.update();
-                        bedState = (org.bukkit.block.Bed)blockBottom.getState();
-                        bedState.setColor(bedColor);
-                        bedState.update();
+                        placeDecoration(Decoration.BED, block, vec, facing, window);
                     } else if (torches > 0) {
                         torches -= 1;
-                        style.torch.facing(facing).setBlockNoPhysics(floor.getRelative(0, window ? 1 : 2, 0));
+                        placeDecoration(Decoration.TORCH, block, vec, facing, window);
                     } else {
-                        switch (randomInt(24)) {
-                        case 0:
-                            if (!window) floor.getRelative(0, 3, 0).setType(Material.BOOKSHELF);
-                            // fallthrough
-                        case 1:
-                            if (!window) floor.getRelative(0, 2, 0).setType(Material.BOOKSHELF);
-                            // fallthrough
-                        case 2:
-                            floor.getRelative(0, 1, 0).setType(Material.BOOKSHELF);
-                            break;
-                        case 3:
-                            floor.getRelative(0, 1, 0).setType(Material.CAULDRON);
-                            break;
-                        case 4:
-                            floor.getRelative(0, 1, 0).setType(Material.BREWING_STAND);
-                            break;
-                        case 5:
-                            floor.getRelative(0, 1, 0).setType(Material.JUKEBOX);
-                            break;
-                        case 6:
-                            floor.getRelative(0, 1, 0).setType(Material.WORKBENCH);
-                            break;
-                        case 7:
-                            floor.getRelative(0, 1, 0).setTypeIdAndData(Material.FURNACE.getId(), (byte)facing.dataBlock, true);
-                            break;
-                        case 8:
-                            floor.getRelative(0, 1, 0).setTypeIdAndData(Material.CHEST.getId(), (byte)facing.dataBlock, true);
-                            break;
-                        case 9:
-                            style.stair.facing(facing).setBlock(floor.getRelative(0, 1, 0));
-                            break;
-                        case 10:
-                        case 11:
-                        case 12:
-                        case 13:
-                        case 14:
-                        case 15:
-                        case 16:
-                            style.stair.or(facing.dataStair | 4).setBlock(floor.getRelative(0, 1, 0));
-                            floor.getRelative(0, 2, 0).setType(Material.FLOWER_POT);
-                            MaterialData flower;
-                            switch (randomInt(32)) {
-                            case 0: flower = new MaterialData(Material.RED_ROSE, (byte)0); break;
-                            case 1: flower = new MaterialData(Material.RED_ROSE, (byte)1); break;
-                            case 2: flower = new MaterialData(Material.RED_ROSE, (byte)2); break;
-                            case 3: flower = new MaterialData(Material.RED_ROSE, (byte)3); break;
-                            case 4: flower = new MaterialData(Material.RED_ROSE, (byte)4); break;
-                            case 5: flower = new MaterialData(Material.RED_ROSE, (byte)5); break;
-                            case 6: flower = new MaterialData(Material.RED_ROSE, (byte)6); break;
-                            case 7: flower = new MaterialData(Material.RED_ROSE, (byte)7); break;
-                            case 8: flower = new MaterialData(Material.RED_ROSE, (byte)8); break;
-                            case 9: flower = new MaterialData(Material.YELLOW_FLOWER); break;
-                            case 10: flower = new MaterialData(Material.SAPLING, (byte)0); break;
-                            case 11: flower = new MaterialData(Material.SAPLING, (byte)1); break;
-                            case 12: flower = new MaterialData(Material.SAPLING, (byte)2); break;
-                            case 13: flower = new MaterialData(Material.SAPLING, (byte)3); break;
-                            case 14: flower = new MaterialData(Material.SAPLING, (byte)4); break;
-                            case 15: flower = new MaterialData(Material.SAPLING, (byte)5); break;
-                            case 16: flower = new MaterialData(Material.RED_MUSHROOM); break;
-                            case 17: flower = new MaterialData(Material.BROWN_MUSHROOM); break;
-                            case 18: flower = new MaterialData(Material.DEAD_BUSH); break;
-                            case 19: flower = new MaterialData(Material.LONG_GRASS, (byte)2); break;
-                            case 20: default: flower = new MaterialData(Material.CACTUS); break;
-                            }
-                            org.bukkit.block.FlowerPot pot = (org.bukkit.block.FlowerPot)floor.getRelative(0, 2, 0).getState();
-                            pot.setContents(flower);
-                            pot.update();
-                            break;
-                        case 17:
-                            floor.getRelative(0, 1, 0).setTypeIdAndData(Material.ANVIL.getId(), (byte)randomInt(12), true);
-                            break;
-                        case 18:
-                            floor.getRelative(0, 2, 0).setTypeIdAndData(Material.WALL_BANNER.getId(), (byte)facing.dataBlock, true);
-                            org.bukkit.block.Banner banner = (org.bukkit.block.Banner)floor.getRelative(0, 2, 0).getState();
-                            banner.setBaseColor(DyeColor.values()[color]);
-                            int patternCount = 1 + randomInt(4);
-                            List<Pattern> patterns = new ArrayList<>(patternCount);
-                            for (int j = 0; j < patternCount; j += 1) {
-                                patterns.add(new Pattern(DyeColor.values()[randomInt(DyeColor.values().length)], PatternType.values()[randomInt(PatternType.values().length)]));
-                            }
-                            banner.setPatterns(patterns);
-                            banner.update();
-                            break;
-                        case 19:
-                            floor.getRelative(0, 1, 0).setType(Material.FENCE);
-                            floor.getRelative(0, 2, 0).setType(Material.WOOD_PLATE);
-                            break;
-                        case 20:
-                            Tile.of(Material.ENCHANTMENT_TABLE).setBlock(floor.getRelative(0, 1, 0));
-                            break;
-                        case 21:
-                            Tile.of(Material.ENDER_CHEST, facing.dataBlock).setBlock(floor.getRelative(0, 1, 0));
-                            break;
-                        case 22:
-                            if (!window) {
-                                for (int i = 2; i < roomHeight; i += 1) {
-                                    Tile.of(Material.LADDER, facing.dataBlock).setBlock(floor.getRelative(0, i, 0));
-                                }
-                            }
-                            Tile.of(Material.LADDER, facing.dataBlock).setBlock(floor.getRelative(0, 1, 0));
-                            break;
-                        case 23:
-                        default:
-                            Vec2 nbor = vec.relative(facing.rotate().vector);
-                            if (decl.contains(nbor) && tiles.get(nbor) == RoomTile.FLOOR) {
-                                tiles.put(nbor, RoomTile.DECORATION);
-                                Facing faceDown = facing.rotate();
-                                Facing faceUp = faceDown.opposite();
-                                Block blockHead = floor.getRelative(0, 1, 0);
-                                Block blockBottom = floor.getRelative(faceDown.vector.x, 1, faceDown.vector.y);
-                                Tile.of(Material.BED_BLOCK).or(faceUp.dataBed | 8).setBlockNoPhysics(blockHead);
-                                Tile.of(Material.BED_BLOCK).or(faceUp.dataBed).setBlockNoPhysics(blockBottom);
-                                DyeColor bedColor = DyeColor.values()[color];
-                                org.bukkit.block.Bed bedState;
-                                bedState = (org.bukkit.block.Bed)blockHead.getState();
-                                bedState.setColor(bedColor);
-                                bedState.update();
-                                bedState = (org.bukkit.block.Bed)blockBottom.getState();
-                                bedState.setColor(bedColor);
-                                bedState.update();
-                            } else {
-                                style.stair.or(facing.dataStair).setBlock(floor.getRelative(0, 1, 0));
-                            }
-                        }
+                        Decoration decoration = Decoration.values()[randomInt(Decoration.values().length)];
+                        placeDecoration(decoration, block, vec, facing, window);
                     }
                 }
-                // Vec2 carpetSize = new Vec2(randomInt(room.width() - 3), randomInt(room.height() - 3));
                 int carpetX = randomInt(room.width() - 3);
                 int carpetY = randomInt(room.height() - 4);
                 if (carpetX > 0 && carpetY > 0) {
@@ -961,6 +835,133 @@ final class Generator {
                           null);
     }
 
+    /**
+     * Must be set: house, style
+     */
+    boolean placeDecoration(Decoration decoration, Block block, Vec2 vec, Facing facing, boolean window) {
+        switch (decoration) {
+        case TORCH:
+            style.torch.facing(facing).setBlockNoPhysics(block.getRelative(0, (window ? 0 : 1), 0));
+            break;
+        case BOOKSHELF:
+            if (!window) {
+                block.getRelative(0, 2, 0).setType(Material.BOOKSHELF);
+                block.getRelative(0, 1, 0).setType(Material.BOOKSHELF);
+            }
+            block.setType(Material.BOOKSHELF);
+            break;
+        case CAULDRON:
+            block.setType(Material.CAULDRON);
+            break;
+        case BREWING_STAND:
+            block.setType(Material.BREWING_STAND);
+            break;
+        case JUKEBOX:
+            block.setType(Material.JUKEBOX);
+            break;
+        case WORKBENCH:
+            block.setType(Material.WORKBENCH);
+            break;
+        case FURNACE:
+            block.setTypeIdAndData(Material.FURNACE.getId(), (byte)facing.dataBlock, true);
+            break;
+        case CHEST:
+            block.setTypeIdAndData(Material.CHEST.getId(), (byte)facing.dataBlock, true);
+            break;
+        case CHAIR:
+            style.stair.facing(facing).setBlock(block);
+            break;
+        case FLOWER_POT:
+            style.stair.or(facing.dataStair | 4).setBlock(block);
+            block.getRelative(0, 1, 0).setType(Material.FLOWER_POT);
+            MaterialData flower;
+            switch (randomInt(32)) {
+            case 0: flower = new MaterialData(Material.RED_ROSE, (byte)0); break;
+            case 1: flower = new MaterialData(Material.RED_ROSE, (byte)1); break;
+            case 2: flower = new MaterialData(Material.RED_ROSE, (byte)2); break;
+            case 3: flower = new MaterialData(Material.RED_ROSE, (byte)3); break;
+            case 4: flower = new MaterialData(Material.RED_ROSE, (byte)4); break;
+            case 5: flower = new MaterialData(Material.RED_ROSE, (byte)5); break;
+            case 6: flower = new MaterialData(Material.RED_ROSE, (byte)6); break;
+            case 7: flower = new MaterialData(Material.RED_ROSE, (byte)7); break;
+            case 8: flower = new MaterialData(Material.RED_ROSE, (byte)8); break;
+            case 9: flower = new MaterialData(Material.YELLOW_FLOWER); break;
+            case 10: flower = new MaterialData(Material.SAPLING, (byte)0); break;
+            case 11: flower = new MaterialData(Material.SAPLING, (byte)1); break;
+            case 12: flower = new MaterialData(Material.SAPLING, (byte)2); break;
+            case 13: flower = new MaterialData(Material.SAPLING, (byte)3); break;
+            case 14: flower = new MaterialData(Material.SAPLING, (byte)4); break;
+            case 15: flower = new MaterialData(Material.SAPLING, (byte)5); break;
+            case 16: flower = new MaterialData(Material.RED_MUSHROOM); break;
+            case 17: flower = new MaterialData(Material.BROWN_MUSHROOM); break;
+            case 18: flower = new MaterialData(Material.DEAD_BUSH); break;
+            case 19: flower = new MaterialData(Material.LONG_GRASS, (byte)2); break;
+            case 20: default: flower = new MaterialData(Material.CACTUS); break;
+            }
+            org.bukkit.block.FlowerPot pot = (org.bukkit.block.FlowerPot)block.getRelative(0, 1, 0).getState();
+            pot.setContents(flower);
+            pot.update();
+            break;
+        case ANVIL:
+            block.setTypeIdAndData(Material.ANVIL.getId(), (byte)randomInt(12), true);
+            break;
+        case BANNER:
+            block.getRelative(0, 1, 0).setTypeIdAndData(Material.WALL_BANNER.getId(), (byte)facing.dataBlock, true);
+            org.bukkit.block.Banner banner = (org.bukkit.block.Banner)block.getRelative(0, 1, 0).getState();
+            banner.setBaseColor(DyeColor.values()[style.color]);
+            int patternCount = 1 + randomInt(4);
+            List<Pattern> patterns = new ArrayList<>(patternCount);
+            for (int j = 0; j < patternCount; j += 1) {
+                patterns.add(new Pattern(DyeColor.values()[randomInt(DyeColor.values().length)], PatternType.values()[randomInt(PatternType.values().length)]));
+            }
+            banner.setPatterns(patterns);
+            banner.update();
+            break;
+        case TABLE:
+            block.setType(Material.FENCE);
+            block.getRelative(0, 1, 0).setType(Material.WOOD_PLATE);
+            break;
+        case ENCHANTMENT_TABLE:
+            Tile.of(Material.ENCHANTMENT_TABLE).setBlock(block);
+            break;
+        case ENDER_CHEST:
+            Tile.of(Material.ENDER_CHEST, facing.dataBlock).setBlock(block);
+            break;
+        case LADDER:
+            if (!window) {
+                for (int i = 1; i < roomHeight; i += 1) {
+                    Tile.of(Material.LADDER, facing.dataBlock).setBlock(block.getRelative(0, i, 0));
+                }
+            }
+            Tile.of(Material.LADDER, facing.dataBlock).setBlock(block);
+            break;
+        case BED:
+            Vec2 nbor = vec.relative(facing.rotate().vector);
+            if (house.decorationList.contains(nbor) && house.tiles.get(nbor) == RoomTile.FLOOR) {
+                house.tiles.put(nbor, RoomTile.DECORATION);
+                Facing faceDown = facing.rotate();
+                Facing faceUp = faceDown.opposite();
+                Block blockHead = block;
+                Block blockBottom = block.getRelative(faceDown.vector.x, 0, faceDown.vector.y);
+                Tile.of(Material.BED_BLOCK).or(faceUp.dataBed | 8).setBlockNoPhysics(blockHead);
+                Tile.of(Material.BED_BLOCK).or(faceUp.dataBed).setBlockNoPhysics(blockBottom);
+                DyeColor bedColor = DyeColor.values()[style.color];
+                org.bukkit.block.Bed bedState;
+                bedState = (org.bukkit.block.Bed)blockHead.getState();
+                bedState.setColor(bedColor);
+                bedState.update();
+                bedState = (org.bukkit.block.Bed)blockBottom.getState();
+                bedState.setColor(bedColor);
+                bedState.update();
+            } else {
+                return false;
+            }
+            break;
+        default: return false;
+        }
+        return true;
+    }
+
     Struct plantFountain(Block start, int size, Town town) {
         List<Integer> highest = new ArrayList<>();
         Map<Vec2, Integer> tiles = new HashMap<>();
@@ -972,7 +973,7 @@ final class Generator {
         Collections.sort(highest);
         int floorLevel = highest.get(highest.size() / 2);
         Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
-        Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), random.nextInt(16));
+        style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), random.nextInt(16));
         int height = 4 + randomInt(3);
         boolean nether = uniqueFlags.get(Flag.Strategy.STYLE) == Flag.NETHER;
         int waterLevel = 1 + randomInt(14);
@@ -1088,7 +1089,7 @@ final class Generator {
         Collections.sort(highest);
         int floorLevel = highest.get(highest.size() / 2);
         Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
-        Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), random.nextInt(16));
+        style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), random.nextInt(16));
         boolean nether = uniqueFlags.get(Flag.Strategy.STYLE) == Flag.NETHER;
         Tile fruit, soil;
         Struct.Tag cropTag;
@@ -1182,7 +1183,7 @@ final class Generator {
         Collections.sort(highest);
         int floorLevel = highest.get(highest.size() / 2);
         Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
-        Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), random.nextInt(16));
+        style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), random.nextInt(16));
         boolean nether = uniqueFlags.get(Flag.Strategy.STYLE) == Flag.NETHER;
         int cx = width / 2;
         int cy = height / 2;
@@ -1412,7 +1413,7 @@ final class Generator {
         Collections.sort(highest);
         int floorLevel = highest.get(highest.size() / 2);
         Block offset = start.getWorld().getBlockAt(start.getX(), floorLevel, start.getZ());
-        Style style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), random.nextInt(16));
+        style = new Style(uniqueFlags.get(Flag.Strategy.STYLE), random.nextInt(16));
         for (int z = 0; z < height; z += 1) {
             for (int x = 0; x < width; x += 1) {
                 boolean outerX, outerZ, isWall, isCorner;
@@ -1503,9 +1504,14 @@ final class Generator {
                 }
             }
         }
-        // Insert doors
+        // Insert doors and windows
         Collections.shuffle(rooms, random);
         int totalOutsideDoors = 1 + randomInt(3);
+        double windowChance;
+        switch (uniqueFlags.get(Flag.Strategy.PURPOSE)) {
+        case SHOP: windowChance = 0.75; break;
+        default: windowChance = 0.35;
+        }
         for (Room room: rooms) {
             Set<Room> connectedRooms = roomConnections.get(room);
             if (connectedRooms == null) {
@@ -1566,7 +1572,7 @@ final class Generator {
                                 outsideDoor = true;
                                 totalOutsideDoors -= 1;
                             } else if (left != RoomTile.DOOR && right != RoomTile.DOOR) {
-                                if (random.nextBoolean()) {
+                                if (random.nextDouble() < windowChance) {
                                     tiles.put(vec, RoomTile.WINDOW);
                                 }
                             }
@@ -1685,6 +1691,7 @@ final class Generator {
         final List<Vec3> npcs = new ArrayList<>();
         public Vec3 offset;
         public Cuboid boundingBox;
+        List<Vec2> decorationList;
     }
 
     @RequiredArgsConstructor
@@ -1755,9 +1762,11 @@ final class Generator {
         FLOATING(Strategy.ALTITUDE),
         HERE(Strategy.ALTITUDE),
 
+        SHOP(Strategy.PURPOSE),
+
         RANDOM(Strategy.RANDOM);
         enum Strategy {
-            ALTITUDE, STYLE, DOOR, RANDOM;
+            ALTITUDE, STYLE, DOOR, RANDOM, PURPOSE;
         }
         final Strategy strategy;
         final boolean rare;
@@ -1785,7 +1794,9 @@ final class Generator {
         final int baseLevel;
         final double randomWallChance;
         Tile floorAlt, ceilingAlt;
+        final int color;
         Style(Flag flag, int color) {
+            this.color = color;
             switch (flag) {
             case STONEBRICK:
                 wall = wallTop = Tile.STONE_BRICKS;
@@ -2224,5 +2235,25 @@ final class Generator {
             if (floorAlt == null) floorAlt = floor;
             if (ceilingAlt == null) ceilingAlt = ceiling;
         }
+    }
+
+    enum Decoration {
+        TORCH,
+        BOOKSHELF,
+        CAULDRON,
+        BREWING_STAND,
+        JUKEBOX,
+        WORKBENCH,
+        FURNACE,
+        CHEST,
+        CHAIR,
+        FLOWER_POT,
+        ANVIL,
+        BANNER,
+        TABLE,
+        ENCHANTMENT_TABLE,
+        ENDER_CHEST,
+        LADDER,
+        BED;
     }
 }

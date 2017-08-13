@@ -20,16 +20,16 @@ public final class RPGTest {
         }
         for (int syllables = 1; syllables < 5; syllables += 1) {
             System.out.print("[" + syllables + "]");
-            for (int i = 0; i < 40; i += 1) {
+            for (int i = 0; i < 20; i += 1) {
                 System.out.print(" " + generator.generateName(syllables));
             }
             System.out.println();
         }
-        for (int i = 0; i < 9999; i += 1) {
-            String name = generator.generateName(5);
-            String name2 = generator.cleanSpecialChars(name.toLowerCase());
-            if (name2.contains("ass")) System.out.println("= " + name);
-        }
+        // for (int i = 0; i < 9999; i += 1) {
+        //     String name = generator.generateName(5);
+        //     String name2 = generator.cleanSpecialChars(name.toLowerCase());
+        //     if (name2.contains("ass")) System.out.println("= " + name);
+        // }
         System.out.println();
     }
 }

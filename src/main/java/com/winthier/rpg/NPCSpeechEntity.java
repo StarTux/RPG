@@ -148,7 +148,7 @@ public final class NPCSpeechEntity implements CustomEntity, TickableEntity {
 
         void setMessage(String message) {
             messages.clear();
-            messages.addAll(Msg.wrap(message, 12));
+            messages.addAll(Msg.wrap(message, 14));
             messageLength = message.length();
         }
 

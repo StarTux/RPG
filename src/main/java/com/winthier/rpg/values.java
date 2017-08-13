@@ -254,7 +254,7 @@ enum Fraction {
     SKELETON(5, Arrays.asList(EntityType.SKELETON, EntityType.STRAY), ChatColor.WHITE),
     ZOMBIE(5, Arrays.asList(EntityType.ZOMBIE, EntityType.HUSK), ChatColor.DARK_GREEN),
     ZOMBIE_VILLAGER(3, Arrays.asList(EntityType.ZOMBIE_VILLAGER), ChatColor.DARK_GREEN),
-    OCCULT(2, Arrays.asList(EntityType.WITCH, EntityType.EVOKER, EntityType.VINDICATOR), ChatColor.LIGHT_PURPLE),
+    OCCULT(2, Arrays.asList(EntityType.WITCH, EntityType.EVOKER, EntityType.VINDICATOR, EntityType.ILLUSIONER), ChatColor.LIGHT_PURPLE),
     NETHER(1, Arrays.asList(EntityType.PIG_ZOMBIE, EntityType.BLAZE, EntityType.WITHER_SKELETON), ChatColor.RED),
     CREEPER(0, Arrays.asList(EntityType.CREEPER), ChatColor.DARK_GREEN);
 

@@ -320,7 +320,7 @@ final class RPGWorld {
             return false;
         }
         Rectangle area = new Rectangle(gt.ax, gt.ay, gt.bx, gt.by);
-        Rectangle exclusiveArea = area.grow(255);
+        Rectangle exclusiveArea = area.grow(512);
         for (Town town: towns) {
             if (town.exclusiveArea.intersects(exclusiveArea)) {
                 return false;
@@ -544,7 +544,7 @@ final class RPGWorld {
                     for (Entity nearby: player.getNearbyEntities(16, 16, 16)) {
                         if (nearby.getScoreboardTags().contains("Winthier.RPG.Defender")) defenderCount += 1;
                     }
-                    if (defenderCount >= 20) continue;
+                    if (defenderCount >= Math.abs(rep)) continue;
                     EntityType et;
                     if (town.fraction == Fraction.VILLAGER) {
                         et = EntityType.IRON_GOLEM;

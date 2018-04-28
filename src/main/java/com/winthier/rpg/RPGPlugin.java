@@ -187,12 +187,12 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
                 generator.plantTown(player.getWorld(), town);
                 sender.sendMessage("Success!");
                 Debug.printChunks(town.chunks);
-                for (Generator.House house: town.houses) Debug.printHouse(house);
+                for (Generator.House house: town.houses) Debug.printHouse(house.tiles);
             } else if (structure.equals("house")) {
                 Generator.House house = generator.generateHouse(size, size);
                 generator.plantHouse(player.getLocation().getBlock().getRelative(-size / 2, 0, -size / 2), house);
                 sender.sendMessage("House size " + size + " generated with " + flags);
-                Debug.printHouse(house);
+                Debug.printHouse(house.tiles);
             } else if (structure.equals("fountain")) {
                 generator.plantFountain(player.getLocation().getBlock().getRelative(-size / 2, 0, -size / 2), size, null);
                 sender.sendMessage("Fountain generated");
@@ -209,7 +209,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
                 Generator.House house = generator.generateHouse(size, size);
                 generator.plantLair(player.getLocation().getBlock().getRelative(-size / 2, 0, -size / 2), house, null);
                 sender.sendMessage("Monster base generated");
-                Debug.printHouse(house);
+                Debug.printHouse(house.tiles);
             } else if (structure.equals("name")) {
                 StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < 20; i += 1) sb.append(" ").append(generator.generateName(size));
@@ -338,7 +338,6 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
             && !BukkitExploits.getInstance().isPlayerPlaced(block)
             && !belonging.types.contains(Struct.Type.CROPS)
             && !belonging.types.contains(Struct.Type.LAIR)) {
-            getReputations().giveReputation(player, belonging.town.fraction, -1);
             PotionEffect potion = player.getPotionEffect(PotionEffectType.SLOW_DIGGING);
             int level;
             int duration;
@@ -353,6 +352,7 @@ public final class RPGPlugin extends JavaPlugin implements Listener {
             Location loc = block.getLocation().add(0.5, 0.5, 0.5);
             player.spawnParticle(Particle.VILLAGER_ANGRY, loc, 3, .2, .2, .2, 0.0);
             player.playSound(loc, Sound.ENTITY_VILLAGER_HURT, SoundCategory.MASTER, 0.1f, 0.1f);
+            event.setCancelled(true);
         }
         for (RPGWorld.Quest quest: belonging.town.quests) {
             if (quest.type == RPGWorld.Quest.Type.MINE

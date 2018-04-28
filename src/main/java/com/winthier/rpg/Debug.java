@@ -13,13 +13,13 @@ import java.util.UUID;
 public final class Debug {
     private Debug() { }
 
-    static void printHouse(House house) {
-        if (house.tiles.isEmpty()) return;
+    static void printHouse(Map<Vec2, RoomTile> tiles) {
+        if (tiles.isEmpty()) return;
         int ax = Integer.MAX_VALUE;
         int ay = Integer.MAX_VALUE;
         int sx = Integer.MIN_VALUE;
         int sy = Integer.MIN_VALUE;
-        for (Vec2 vec: house.tiles.keySet()) {
+        for (Vec2 vec: tiles.keySet()) {
             if (vec.x < ax) ax = vec.x;
             if (vec.y < ay) ay = vec.y;
             if (vec.x > sx) sx = vec.x;
@@ -32,12 +32,12 @@ public final class Debug {
             StringBuilder sb = new StringBuilder();
             for (int x = 0; x <= sx; x += 1) {
                 Vec2 vec = new Vec2(x + ax, y + ay);
-                RoomTile tile = house.tiles.get(vec);
+                RoomTile tile = tiles.get(vec);
                 if (tile == null) {
                     sb.append(" ");
                 } else if (tile == RoomTile.WALL) {
-                    RoomTile left = house.tiles.get(vec.relative(0, 1));
-                    RoomTile right = house.tiles.get(vec.relative(0, -1));
+                    RoomTile left = tiles.get(vec.relative(0, 1));
+                    RoomTile right = tiles.get(vec.relative(0, -1));
                     if (left == null || right == null || !left.isWall() || !right.isWall()) {
                         sb.append("=");
                     } else {

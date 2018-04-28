@@ -1623,6 +1623,83 @@ final class Generator {
         return new House(rooms, tiles, roomMap);
     }
 
+    DungeonFloor generateDungeonFloor(int width, int height, int entryX, int entryY) {
+        List<Room> rooms = splitRoom(new Room(0, 0, width - 1, height - 1));
+        int roomc = rooms.size();
+        Facing[] touching = new Facing[roomc * roomc];
+        int entryRoomIndex = 0;
+        for (int i = 0; i < roomc; i += 1) {
+            Room ra = rooms.get(i);
+            if (ra.ax <= entryX && ra.bx >= entryX && ra.ay <= entryY && ra.by >= entryY) {
+                entryRoomIndex = i;
+            }
+            for (int j = 0; j < roomc; j += 1) {
+                if (i == j) continue;
+                Room rb = rooms.get(j);
+                if (ra.ax == rb.bx
+                    && ra.ay < rb.by - 2
+                    && ra.by > rb.ay + 2) {
+                    touching[j + i * roomc] = Facing.WEST;
+                    touching[i + j * roomc] = Facing.EAST;
+                } else if (ra.ay == rb.by
+                    && ra.ax < rb.bx - 2
+                    && ra.bx > rb.ax + 2) {
+                    touching[j + i * roomc] = Facing.NORTH;
+                    touching[i + j * roomc] = Facing.SOUTH;
+                }
+            }
+        }
+        int[] path = new int[roomc];
+        int[] cost = new int[roomc];
+        cost[entryRoomIndex] = 1;
+        path[0] = entryRoomIndex;
+        int pathc = 1;
+        int[] possible = new int[roomc];
+        int exitRoomIndex = 1;
+        for (int i = 0; i < roomc; i += 1) {
+            int roomIndex = path[i];
+            Room room = rooms.get(roomIndex);
+            int possiblec = 0;
+            for (int j = 0; j < roomc; j += 1) {
+                if (touching[j + roomIndex * roomc] == null) continue;
+                if (cost[j] > 0) continue;
+                possible[possiblec++] = j;
+            }
+            if (possiblec > 0) {
+                int nextRoomIndex = possible[randomInt(possiblec)];
+                path[pathc++] = nextRoomIndex;
+                cost[nextRoomIndex] = i + 2;
+            } else {
+                exitRoomIndex = roomIndex;
+            }
+        }
+        Set<Room> essentials = new HashSet<>();
+        for (int i = 0; i < pathc; i += 1) {
+            essentials.add(rooms.get(path[i]));
+        }
+        // Draw tiles
+        Map<Vec2, RoomTile> tiles = new HashMap<>();
+        for (Room room: rooms) {
+            if (!essentials.contains(room)) continue;
+            for (int y = room.ay; y <= room.by; y += 1) {
+                tiles.put(new Vec2(room.ax, y), RoomTile.WALL);
+                tiles.put(new Vec2(room.bx, y), RoomTile.WALL);
+            }
+            for (int x = room.ax; x <= room.bx; x += 1) {
+                tiles.put(new Vec2(x, room.ay), RoomTile.WALL);
+                tiles.put(new Vec2(x, room.by), RoomTile.WALL);
+            }
+            for (int y = room.ay + 1; y < room.by; y += 1) {
+                for (int x = room.ax + 1; x < room.bx; x += 1) {
+                    Vec2 vec = new Vec2(x, y);
+                    tiles.put(vec, RoomTile.FLOOR);
+                }
+            }
+        }
+        DungeonFloor dungeonFloor = new DungeonFloor(rooms, tiles);
+        return dungeonFloor;
+    }
+
     List<Room> splitRoom(Room room) {
         List<Room> result = new ArrayList<>();
         Orientation ori;
@@ -1700,6 +1777,7 @@ final class Generator {
     static final class Room {
         public final int ax, ay, bx, by;
         public Cuboid boundingBox;
+        public int flags;
 
         int width() {
             return bx - ax + 1;
@@ -1719,6 +1797,12 @@ final class Generator {
         public Vec3 offset;
         public Cuboid boundingBox;
         List<Vec2> decorationList;
+    }
+
+    @RequiredArgsConstructor
+    static final class DungeonFloor {
+        final List<Room> rooms;
+        final Map<Vec2, RoomTile> tiles;
     }
 
     @RequiredArgsConstructor
@@ -1749,6 +1833,7 @@ final class Generator {
     enum Flag {
         COBBLE(Strategy.STYLE),
         SANDSTONE(Strategy.STYLE),
+        SANDSTONE2(Strategy.STYLE),
         RED_SANDSTONE(Strategy.STYLE),
         STONEBRICK(Strategy.STYLE),
         BRICKS(Strategy.STYLE),
@@ -1766,7 +1851,6 @@ final class Generator {
         DIORITE(Strategy.STYLE),
         GRANITE(Strategy.STYLE),
         QUARTZ(Strategy.STYLE),
-        PURPUR(Strategy.STYLE),
         NETHER(Strategy.STYLE, true),
         PRISMARINE(Strategy.STYLE),
         IRON(Strategy.STYLE),
@@ -1853,6 +1937,25 @@ final class Generator {
                 roofSlab = Tile.JUNGLE_WOOD_SLAB;
                 roofDoubleSlab = Tile.DOUBLE_JUNGLE_WOOD_SLAB;
                 floor = ceiling = Tile.OAK_PLANKS;
+                pillar = fence = Tile.SPRUCE_FENCE;
+                window = Tile.of(Material.STAINED_GLASS_PANE, color);
+                slab = Tile.SANDSTONE_SLAB;
+                stair = Tile.SANDSTONE_STAIRS;
+                gate = Tile.SPRUCE_FENCE_GATE;
+                baseLevel = 1;
+                randomWallChance = -1.0;
+                break;
+            case SANDSTONE2:
+                wall = wallRandom = Tile.SANDSTONE;
+                wallBase = Tile.SMOOTH_SANDSTONE;
+                wallTop = Tile.SMOOTH_SANDSTONE;
+                corner = Tile.SMOOTH_SANDSTONE;
+                cornerBase = cornerTop = Tile.CHISELED_SANDSTONE;
+                foundation = Tile.SANDSTONE;
+                roofStair = Tile.SANDSTONE_STAIRS;
+                roofSlab = Tile.SANDSTONE_SLAB;
+                roofDoubleSlab = Tile.DOUBLE_SANDSTONE_SLAB;
+                floor = ceiling = Tile.SANDSTONE;
                 pillar = fence = Tile.SPRUCE_FENCE;
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.SANDSTONE_SLAB;
@@ -1969,9 +2072,9 @@ final class Generator {
                 break;
             case BIRCH:
                 wall = wallRandom = foundation = Tile.BIRCH_PLANKS;
-                wallTop = Tile.BIRCH_LOG.or(4);
+                wallTop = Tile.OAK_LOG.or(4);
                 wallBase = Tile.STONE_BRICKS;
-                corner = cornerBase = Tile.BIRCH_LOG;
+                corner = cornerBase = Tile.OAK_LOG;
                 cornerTop = Tile.CHISELED_STONE_BRICKS;
                 floor = ceiling = Tile.COBBLESTONE;
                 roofStair = Tile.BIRCH_WOOD_STAIRS;
@@ -2149,25 +2252,6 @@ final class Generator {
                 window = Tile.of(Material.STAINED_GLASS_PANE, color);
                 slab = Tile.COBBLESTONE_SLAB;
                 stair = Tile.COBBLESTONE_STAIRS;
-                baseLevel = 0;
-                randomWallChance = -1.0;
-                break;
-            case PURPUR:
-                wall = wallRandom = foundation = Tile.END_STONE_BRICKS;
-                wallBase = Tile.PURPUR_BLOCK;
-                wallTop = Tile.PURPUR_PILLAR.or(4);
-                corner = Tile.PURPUR_PILLAR;
-                cornerBase = cornerTop = Tile.PURPUR_BLOCK;
-                floor = ceiling = Tile.PURPUR_BLOCK;
-                floorAlt = ceilingAlt = Tile.PURPUR_PILLAR;
-                roofStair = Tile.PURPUR_STAIRS;
-                roofSlab = Tile.PURPUR_SLAB;
-                roofDoubleSlab = Tile.PURPUR_DOUBLE_SLAB;
-                pillar = fence = Tile.COBBLESTONE_WALL;
-                window = Tile.of(Material.STAINED_GLASS_PANE, color);
-                slab = Tile.PURPUR_SLAB;
-                stair = Tile.PURPUR_STAIRS;
-                torch = Tile.END_ROD;
                 baseLevel = 0;
                 randomWallChance = -1.0;
                 break;
